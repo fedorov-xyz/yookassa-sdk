@@ -1,6 +1,6 @@
 {
   "name": "yookassa-sdk-node",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "YooKassa TypeScript SDK",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
