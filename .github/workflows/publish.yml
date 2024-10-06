@@ -1,0 +1,77 @@
+name: 'Publish'
+
+on:
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'version type:'
+        required: true
+        type: choice
+        default: 'minor'
+        options:
+          - patch
+          - minor
+          - major
+      custom_version:
+        description: 'custom version: x.y.z (without "v")'
+        required: false
+      tag:
+        description: 'tag'
+
+run-name: Publish ${{ inputs.type }} ${{ inputs.custom_version }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Set Git credentials
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Action"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          always-auth: true
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump by version type
+        if: ${{ !github.event.inputs.custom_version }}
+        run: npm version ${{ github.event.inputs.type }} --no-git-tag-version
+
+      - name: Bump by custom version
+        if: ${{ github.event.inputs.custom_version }}
+        run: npm version ${{ github.event.inputs.custom_version }} --no-git-tag-version
+
+      - name: Pushing changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+
+      - name: Publushing prerelase
+        run: npm publish --provenance --access public --tag ${{ github.event.inputs.tag }}
+        if: ${{ github.event.inputs.tag }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPMJS_PUBLISH_TOKEN }}
+
+      - name: Publushing release
+        run: npm publish --provenance --access public
+        if: ${{ !github.event.inputs.tag }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPMJS_PUBLISH_TOKEN }}

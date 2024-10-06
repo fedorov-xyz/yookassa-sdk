@@ -1,0 +1,777 @@
+openapi: 3.0.0
+info:
+  title: YooKassa API
+  description: This is a basic OpenAPI schema for the payment section of the YooKassa v3 API.
+  version: 1.0.0
+  contact:
+    name: YooKassa Support
+    url: https://yookassa.ru
+    email: support@yookassa.ru
+
+servers:
+  - url: https://api.yookassa.ru/v3
+
+paths:
+  /payments:
+    post:
+      summary: Создание платежа
+      description: Чтобы принять оплату, необходимо создать объект платежа — Payment. Он содержит всю необходимую информацию для проведения оплаты (сумму, валюту и статус). У платежа линейный жизненный цикл, он последовательно переходит из статуса в статус.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      parameters:
+        - $ref: '#/components/parameters/IdempotenceKey'
+      security:
+        - BasicAuth: []
+      responses:
+        '201':
+          description: Payment successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Payment not found
+
+  /payments/{paymentId}:
+    get:
+      summary: Информация о платеже
+      description: Запрос позволяет получить информацию о текущем состоянии платежа по его уникальному идентификатору
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          description: ID платежа
+          schema:
+            type: string
+      security:
+        - BasicAuth: [ ]
+      responses:
+        '200':
+          description: Payment retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '404':
+          description: Payment not found
+        '401':
+          description: Unauthorized
+
+  /payments/{payment_id}/cancel:
+    post:
+      summary: Отмена платежа
+      description: |
+        Отменяет платеж, находящийся в статусе `waiting_for_capture`.
+
+        Отмена платежа значит, что вы не готовы выдать пользователю товар или оказать услугу. Как только вы отменяете платеж, мы начинаем возвращать деньги на счет плательщика. Для платежей банковскими картами, из кошелька ЮMoney или через SberPay отмена происходит мгновенно. Для остальных способов оплаты возврат может занимать до нескольких дней
+        
+        Подробнее: https://yookassa.ru/developers/payment-acceptance/getting-started/payment-process#capture-and-cancel
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          description: ID платежа
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotenceKey'
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          description: Payment successfully canceled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /invoices:
+    post:
+      summary: Создание счета
+      operationId: create-invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvoiceRequest'
+      parameters:
+        - $ref: '#/components/parameters/IdempotenceKey'
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          description: Созданный объект счета в актуальном статусе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: <Идентификатор магазина>:<Секретный ключ>
+
+  parameters:
+    IdempotenceKey:
+      name: Idempotence-Key
+      in: header
+      required: true
+      schema:
+        type: string
+
+  responses:
+    ErrorResponse:
+      description: Тело ответа при ошибке
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      description: Error response for invalid or failed requests.
+      properties:
+        type:
+          type: string
+          enum: ['error']
+        id:
+          type: string
+          description: Идентификатор ошибки. Используйте его, если вам необходимо обратиться в техническую поддержку
+          example: '249e2cf0-000f-5000-a000-1df11df15d3c'
+        code:
+          type: string
+          description: >
+            Код ошибки
+
+            - `invalid_request` — неправильный запрос, например ошибка в значении параметра или нарушение логики проведения операции (HTTP 400)
+            - `invalid_credentials` — некорректные данные для аутентификации запросов (HTTP 401)
+            - `forbidden` — не хватает прав для выполнения операции (HTTP 403)
+            - `not_found` — запрашиваемый ресурс не найден (HTTP 404)
+            - `too_many_requests` — превышен лимит запросов в единицу времени (HTTP 429)
+            - `internal_server_error` — технические неполадки на стороне ЮKassa (HTTP 500)
+          enum:
+            - invalid_request
+            - invalid_credentials
+            - forbidden
+            - not_found
+            - too_many_requests
+            - internal_server_error
+        description:
+          type: string
+          description: Описание ошибки на английском языке
+        parameter:
+          type: string
+          description: Название заголовка или параметра тела ответа, из-за которого произошла ошибка
+      required:
+        - type
+        - id
+        - code
+
+    CreatePaymentRequest:
+      type: object
+      description: |
+        Запрос на создание платежа
+        
+        **FIXME**: Описать `airline`, `transfer`, `deal`, `receiver`
+      properties:
+        amount:
+          $ref: '#/components/schemas/Amount'
+        description:
+          type: string
+          description: >
+            Описание транзакции (не более 128 символов), которое вы увидите в личном кабинете ЮKassa, а пользователь — при оплате
+          example: 'Оплата заказа № 72 для user@yoomoney.ru'
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+        payment_token:
+          type: string
+          description: Одноразовый токен для проведения оплаты, сформированный с помощью Checkout.js или мобильного SDK
+        payment_method_id:
+          type: string
+          description: Идентификатор сохраненного способа оплаты
+        payment_method_data:
+          type: object
+          description: FIXME
+        confirmation:
+          type: object
+          description: FIXME
+        save_payment_method:
+          type: boolean
+          description: |
+            Сохранение платежных данных для проведения автоплатежей. Возможные значения:
+            
+            - `true` — сохранить способ оплаты (сохранить платежные данные);
+            - `false` — провести платеж без сохранения способа оплаты.
+
+            Доступно только после согласования с менеджером ЮKassa.
+        capture:
+          type: boolean
+          description: |
+            Автоматический прием  поступившего платежа. Возможные значения:
+            
+            - `true` — оплата списывается сразу (платеж в одну стадию);
+            - `false` — оплата холдируется и списывается по вашему запросу (платеж в две стадии).
+          default: false
+        client_ip:
+          type: string
+          description: IPv4 или IPv6-адрес пользователя. Если не указан, используется IP-адрес TCP-подключения
+        metadata:
+          type: object
+          description: |
+            Любые дополнительные данные, которые нужны вам для работы (например, ваш внутренний идентификатор заказа). 
+            Передаются в виде набора пар «ключ-значение» и возвращаются в ответе от ЮKassa.
+            Ограничения: максимум 16 ключей, имя ключа не больше 32 символов, значение ключа не больше 512 символов, тип данных — строка в формате UTF-8.
+          additionalProperties:
+            type: string
+            description: Значение ключа, не больше 512 символов, строка в формате UTF-8
+            maxLength: 512
+            maxProperties: 16
+        merchant_customer_id:
+          type: string
+          description: Идентификатор покупателя в вашей системе, например электронная почта или номер телефона. Не более 200 символов. Присутствует, если вы хотите запомнить банковскую карту и отобразить ее при повторном платеже в виджете ЮKassa.
+      required:
+        - amount
+
+    CreateInvoiceRequest:
+      type: object
+      description: Запрос на создание инвойса.
+      properties:
+        payment_data:
+          $ref: '#/components/schemas/CreateInvoicePaymentData'
+        cart:
+          type: array
+          description: Корзина заказа — список товаров или услуг, который отобразится на странице счета перед оплатой
+          items:
+            $ref: '#/components/schemas/InvoiceCartItem'
+        expires_at:
+          type: string
+          format: date-time
+          description: Срок действия счета — дата и время, до которых можно оплатить выставленный счет. Указывается по UTC и передается в формате ISO 8601
+          example: '2024-10-18T10:51:18.139Z'
+        locale:
+          type: string
+          description: |
+            Язык интерфейса, писем и смс, которые будет видеть или получать пользователь. Формат соответствует ISO/IEC 15897
+          enum:
+            - ru_RU
+            - en_US
+        description:
+          type: string
+          description: Описание выставленного счета (не более 128 символов), которое вы увидите в личном кабинете ЮKassa, а пользователь на странице счета
+          example: Счет на оплату по договору 37
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+      required:
+        - payment_data
+        - cart
+        - expires_at
+
+    CreateInvoicePaymentData:
+      type: object
+      description: |
+        Данные для проведения платежа по выставленному счету
+      properties:
+        amount:
+          $ref: '#/components/schemas/Amount'
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+        save_payment_method:
+          type: boolean
+          description: |
+            Сохранение платежных данных для проведения автоплатежей. Возможные значения:
+
+            - `true` — сохранить способ оплаты (сохранить платежные данные);
+            - `false` — провести платеж без сохранения способа оплаты.
+
+            Доступно только после согласования с менеджером ЮKassa.
+        capture:
+          type: boolean
+          description: |
+            Автоматический прием  поступившего платежа. Возможные значения:
+
+            - `true` — оплата списывается сразу (платеж в одну стадию);
+            - `false` — оплата холдируется и списывается по вашему запросу (платеж в две стадии).
+        client_ip:
+          type: string
+          description: IPv4 или IPv6-адрес пользователя. Если не указан, используется IP-адрес TCP-подключения
+        description:
+          type: string
+          description: >
+            Описание транзакции (не более 128 символов), которое вы увидите в личном кабинете ЮKassa, а пользователь — при оплате
+          example: 'Оплата заказа № 72 для user@yoomoney.ru'
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+      required:
+        - amount
+
+    Metadata:
+      type: object
+      description: |
+        Любые дополнительные данные, которые нужны вам для работы (например, ваш внутренний идентификатор заказа). 
+        Передаются в виде набора пар «ключ-значение» и возвращаются в ответе от ЮKassa.
+        Ограничения: максимум 16 ключей, имя ключа не больше 32 символов, значение ключа не больше 512 символов, тип данных — строка в формате UTF-8.
+      additionalProperties:
+        type: string
+        description: Значение ключа, не больше 512 символов, строка в формате UTF-8
+        maxLength: 512
+        maxProperties: 16
+
+    Receipt:
+      type: object
+      description: |
+        Данные для формирования чека
+
+        **FIXME: Нужно описать недостающие необязательные поля**
+      properties:
+        customer:
+          $ref: '#/components/schemas/Customer'
+        items:
+          type: array
+          description: Список товаров или услуг, включенных в чек.
+          items:
+            $ref: '#/components/schemas/ReceiptItem'
+      required:
+        - items
+
+    Customer:
+      type: object
+      description: |
+        Информация о пользователе. Необходимо указать как минимум контактные данные: для Чеков от ЮKassa — электронную почту (`customer.email`), в остальных случаях — электронную почту (`customer.email`) или номер телефона (`customer.phone`).
+      properties:
+        full_name:
+          type: string
+          description: |
+            Для юрлица — название организации, для ИП и физического лица — ФИО. Если у физлица отсутствует ИНН, в этом же параметре передаются паспортные данные. Не более 256 символов.
+
+            Можно передавать, если используете Чеки от ЮKassa или онлайн-кассу Orange Data, Атол Онлайн.
+        inn:
+          type: string
+          description: |
+            ИНН пользователя (10 или 12 цифр). Если у физического лица отсутствует ИНН, необходимо передать паспортные данные в параметре full_name.
+
+            Можно передавать, если используете Чеки от ЮKassa или онлайн-кассу Orange Data, Атол Онлайн.
+        email:
+          type: string
+          description: Электронная почта пользователя для отправки чека. Обязательный параметр, если используете Чеки от ЮKassa или если используете другое решение (стороннюю онлайн-кассу, чеки самозанятых) и не передаете phone.
+        phone:
+          type: string
+          description: Телефон пользователя для отправки чека. Указывается в формате ITU-T E.164. Обязательный параметр, если не передан email.
+          example: '79000000000'
+
+    ReceiptItem:
+      type: object
+      description: |
+        Информация о товаре или услуге в чеке
+
+        **FIXME: Нужно описать недостающие необязательные поля**
+      properties:
+        description:
+          type: string
+          description: Название товара (от 1 до 128 символов). Тег в 54 ФЗ — 1030
+          minLength: 1
+          maxLength: 128
+        amount:
+          $ref: '#/components/schemas/Amount'
+        vat_code:
+          type: integer
+          description: |
+            Ставка НДС (тег в 54 ФЗ — 1199).
+            
+            Для чеков по 54-ФЗ — перечень возможных значений:
+             - для Чеков от ЮKassa: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#vat-codes
+             - для сторонних онлайн-касс: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#vat-codes
+
+            Для чеков самозанятых — фиксированное значение: `1`
+          minimum: 1
+          maximum: 6
+        quantity:
+          type: number
+          format: float
+          description: |
+            Количество товара (тег в 54 ФЗ — 1023).
+
+            - Для чеков по 54-ФЗ: можно передать целое или дробное число. Разделитель дробной части — точка, разделитель тысяч отсутствует. Максимально возможное значение и максимальное количество знаков после точки (для дробных значений) зависят от модели вашей онлайн-кассы. Для чеков от ЮKassa максимально возможное значение — 99999.999, не более 3 знаков после точки.
+            - Для чеков самозанятых: только целые положительные числа (без точки и дробной части). Пример: 1.
+          example: 1
+        measure:
+          type: string
+          description: |
+            Мера количества предмета расчета (тег в 54 ФЗ — 2108) — единица измерения товара, например штуки, граммы.
+
+            Обязательный параметр, если используете Чеки от ЮKassa или онлайн-кассу, обновленную до ФФД 1.2.
+
+            Перечень возможных значений:
+            - для Чеков от ЮKassa: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#measure
+            - для сторонних онлайн-касс: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#measure
+          example: piece
+      required:
+        - description
+        - amount
+        - vat_code
+        - quantity
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the payment.
+          example: '249e2cf0-000f-5000-a000-1df11df15d3c'
+        status:
+          type: string
+          description: Payment status.
+          example: 'pending'
+        amount:
+          $ref: '#/components/schemas/Amount'
+        created_at:
+          type: string
+          format: date-time
+          description: Date and time when the payment was created.
+          example: '2024-01-01T12:00:00Z'
+        confirmation:
+          $ref: '#/components/schemas/Confirmation'
+        captured_at:
+          type: string
+          format: date-time
+          description: When the payment was captured.
+          example: '2024-01-01T12:30:00Z'
+        description:
+          type: string
+          description: Description of the payment.
+          example: 'Order #12345'
+        recipient:
+          $ref: '#/components/schemas/Recipient'
+
+    Invoice:
+      type: object
+      description: |
+        Объект счета (Invoice) содержит всю информацию о счете, актуальную на текущий момент времени. Он формируется при создании счета и приходит в ответ на любой запрос, связанный с счетами.
+
+        Набор возвращаемых параметров зависит от статуса объекта (значение параметра status) и того, какие параметры вы передали в запросе на создание счета.
+
+        Объект может содержать параметры и значения, не описанные в этом Справочнике API. Их следует игнорировать.
+      properties:
+        id:
+          type: string
+          description: Идентификатор счета в ЮКасса
+        status:
+          type: string
+          description: |
+            Статус счета. Возможные значения:
+
+            - `pending` — счет создан и ожидает успешной оплаты;
+            - `succeeded` — счет успешно оплачен, есть связанный платеж в статусе succeeded (финальный и неизменяемый статус для платежей в одну стадию);
+            - `canceled` — вы отменили счет, успешный платеж по нему не поступил или был отменен (при оплате в две стадии) либо истек срок действия счета (финальный и неизменяемый статус).
+          enum:
+            - pending
+            - succeeded
+            - canceled
+        cart:
+          type: array
+          description: Корзина заказа — список товаров или услуг, который отобразится на странице счета перед оплатой
+          items:
+            $ref: '#/components/schemas/InvoiceCartItem'
+        delivery_method:
+          $ref: '#/components/schemas/InvoiceDeliveryMethod'
+        payment_details:
+          $ref: '#/components/schemas/InvoicePaymentDetails'
+        created_at:
+          type: string
+          description: Дата и время создания счета на оплату. Указывается по UTC и передается в формате ISO 8601
+          example: 2017-11-03T11:52:31.827Z
+        expires_at:
+          type: string
+          description: Срок действия счета — дата и время, до которых можно оплатить выставленный счет. Указывается по UTC и передается в формате ISO 8601
+          example: 2017-11-03T11:52:31.827Z
+        description:
+          type: string
+          description: Описание выставленного счета (не более 128 символов), которое вы увидите в личном кабинете ЮKassa, а пользователь на странице счета
+          maxLength: 128
+          example: Счет на оплату по договору 37
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+      required:
+        - id
+        - status
+        - cart
+        - created_at
+
+    InvoiceCartItem:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Название товара или услуги (от 1 до 128 символов). Пользователь увидит его на странице счета перед оплатой
+        price:
+          description: Полная цена товара или услуги. Пользователь увидит ее на странице счета перед оплатой
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+        discount_price:
+          description: Итоговая цена товара с учетом скидки. Если передана, то на странице счета цена отобразится с учетом скидки. Не нужно передавать, если пользователь оплачивает полную стоимость товара или услуги
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+        quantity:
+          type: number
+          description: |
+            Количество товара. Можно передать целое или дробное число. Разделитель дробной части — точка, разделитель тысяч отсутствует, максимум три знака после точки. Пример: 5.000
+          example: 5.000
+      required:
+        - description
+        - price
+        - quantity
+
+    InvoiceDeliveryMethod:
+      type: object
+      description: Данные о выбранном способе доставки счета. Присутствует только для счетов в статусе `pending`
+      properties:
+        type:
+          type: string
+          enum: ['self']
+        url:
+          type: string
+          description: URL страницы счета, который необходимо передать пользователю для оплаты
+      required:
+        - type
+
+    InvoicePaymentDetails:
+      type: object
+      description: Данные о платеже по выставленному счету. Присутствуют, только если платеж успешно подтвержден пользователем
+      properties:
+        id:
+          type: string
+          description: Идентификатор платежа в ЮKassa
+        status:
+          type: string
+          description: |
+            Статус платежа. Возможные значения:
+            
+            - `waiting_for_capture` — для платежей в две стадии: платеж оплачен, деньги авторизованы, вам необходимо списать оплату или отменить платеж;
+            - `succeeded` — платеж успешно завершен, деньги будут перечислены на ваш расчетный счет в соответствии с вашим договором с ЮKassa (финальный и неизменяемый статус);
+            - `canceled` — для платежей в две стадии: вы отменили платеж по API (финальный и неизменяемый статус).
+          enum:
+            - waiting_for_capture
+            - succeeded
+            - canceled
+      required:
+        - id
+        - status
+
+    Amount:
+      type: object
+      description: |-
+        Сумма платежа. Иногда партнеры ЮKassa берут с пользователя дополнительную комиссию, которая не входит в эту сумму
+      properties:
+        value:
+          type: string
+          description: |-
+            Сумма в выбранной валюте. Всегда дробное значение.
+            Разделитель дробной части — точка, разделитель тысяч отсутствует.
+            Количество знаков после точки зависит от выбранной валюты
+          example: '1000.00'
+        currency:
+          type: string
+          description: |-
+            Трехбуквенный код валюты в формате ISO-4217.
+            Должен соответствовать валюте субаккаунта (`recipient.gateway_id`), если вы разделяете потоки платежей, и валюте аккаунта (shopId в личном кабинете), если не разделяете
+          example: RUB
+      required:
+        - value
+        - currency
+
+    Confirmation:
+      description: Выбранный способ подтверждения платежа. Присутствует, когда платеж ожидает подтверждения от пользователя
+      oneOf:
+        - $ref: '#/components/schemas/ConfirmationEmbedded'
+        - $ref: '#/components/schemas/ConfirmationExternal'
+        - $ref: '#/components/schemas/ConfirmationMobileApplication'
+        - $ref: '#/components/schemas/ConfirmationQR'
+        - $ref: '#/components/schemas/ConfirmationRedirect'
+
+    ConfirmationEmbedded:
+      type: object
+      description: Действия, необходимые для подтверждения платежа, будут зависеть от способа оплаты, который пользователь выберет в виджете ЮKassa. Подтверждение от пользователя получит ЮKassa — вам необходимо только встроить виджет к себе на страницу
+      properties:
+        type:
+          type: string
+          enum: ['embedded']
+        confirmation_token:
+          type: string
+          description: Токен для инициализации платежного виджета ЮKassa
+      required:
+        - type
+        - confirmation_token
+
+    ConfirmationExternal:
+      type: object
+      description: Для подтверждения платежа пользователю необходимо совершить действия во внешней системе (например, ответить на смс). От вас требуется только сообщить пользователю о дальнейших шагах
+      properties:
+        type:
+          type: string
+          enum: ['external']
+      required:
+        - type
+
+    ConfirmationMobileApplication:
+      type: object
+      description: Для подтверждения платежа пользователю необходимо совершить действия в мобильном приложении (например, в приложении интернет-банка). Вам нужно перенаправить пользователя на confirmation_url, полученный в платеже
+      properties:
+        type:
+          type: string
+          enum: ['mobile_application']
+        confirmation_url:
+          type: string
+          description: Диплинк на мобильное приложение, в котором пользователь подтверждает платеж
+      required:
+        - type
+        - confirmation_url
+
+    ConfirmationQR:
+      type: object
+      description: Для подтверждения платежа пользователю необходимо просканировать QR-код. От вас требуется сгенерировать QR-код, используя любой доступный инструмент, и отобразить его на странице оплаты
+      properties:
+        type:
+          type: string
+          enum: ['qr']
+        confirmation_data:
+          type: string
+          description: Данные для генерации QR-кода
+      required:
+        - type
+        - confirmation_data
+
+    ConfirmationRedirect:
+      type: object
+      description: Пользователю необходимо что-то сделать на странице ЮKassa или ее партнера (например, ввести данные банковской карты или пройти аутентификацию по 3-D Secure). Вам нужно перенаправить пользователя на confirmation_url, полученный в платеже . При успешной оплате (и если что-то пойдет не так) ЮKassa вернет пользователя на return_url, который вы отправите в запросе на создание платежа
+      properties:
+        type:
+          type: string
+          enum: ['redirect']
+        confirmation_url:
+          type: string
+          description: URL, на который необходимо перенаправить пользователя для подтверждения оплаты
+        enforce:
+          type: string
+          description: |-
+            Запрос на проведение платежа с аутентификацией по 3-D Secure.
+            Будет работать, если оплату банковской картой вы по умолчанию принимаете без подтверждения платежа пользователем.
+            В остальных случаях аутентификацией по 3-D Secure будет управлять ЮKassa.
+            Если хотите принимать платежи без дополнительного подтверждения пользователем, напишите вашему менеджеру ЮKassa
+        return_url:
+          type: string
+          description: URL, на который вернется пользователь после подтверждения или отмены платежа на веб-странице. Не более 2048 символов
+          maxLength: 2048
+      required:
+        - type
+        - confirmation_url
+
+    Recipient:
+      type: object
+      description: |
+        Получатель платежа
+
+        **Для создания платежей**
+        Нужен, если вы разделяете потоки платежей в рамках одного аккаунта или создаете платеж в адрес другого аккаунта.
+      properties:
+        account_id:
+          type: string
+          description: Идентификатор магазина в ЮKassa
+        gateway_id:
+          type: string
+          description: Идентификатор субаккаунта. Используется для разделения потоков платежей в рамках одного аккаунта
+      required:
+        - account_id
+        - gateway_id
+
+    WebhookEvent:
+      description: Входящее уведомление
+      oneOf:
+        - $ref: '#/components/schemas/WebhookEventPaymentWaitingForCapture'
+        - $ref: '#/components/schemas/WebhookEventPaymentSucceeded'
+        - $ref: '#/components/schemas/WebhookEventPaymentCanceled'
+
+    WebhookEventPaymentWaitingForCapture:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: ['notification']
+        event:
+          type: string
+          enum: ['payment.waiting_for_capture']
+        object:
+          $ref: '#/components/schemas/Payment'
+      required:
+        - type
+        - event
+        - object
+
+    WebhookEventPaymentSucceeded:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: ['notification']
+        event:
+          type: string
+          enum: ['payment.succeeded']
+        object:
+          $ref: '#/components/schemas/Payment'
+      required:
+        - type
+        - event
+        - object
+
+    WebhookEventPaymentCanceled:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: ['notification']
+        event:
+          type: string
+          enum: ['payment.canceled']
+        object:
+          $ref: '#/components/schemas/Payment'
+      required:
+        - type
+        - event
+        - object

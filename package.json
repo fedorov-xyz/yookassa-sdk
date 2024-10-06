@@ -1,0 +1,55 @@
+{
+  "name": "yookassa-sdk-node",
+  "version": "0.0.0",
+  "description": "YooKassa TypeScript SDK",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "import": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "require": {
+      "types": "./dist/index.d.cts",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "prepublishOnly": "npm run build",
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean --sourcemap",
+    "generate-openapi": "npx openapi-typescript ./src/openapi.yaml -o ./src/openapi.d.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fedorov-xyz/yookassa-sdk.git"
+  },
+  "keywords": [
+    "yookassa",
+    "yoomoney",
+    "yoocheckout",
+    "sdk",
+    "typescript",
+    "fetch",
+    "nodejs"
+  ],
+  "author": "Igor Fedorov",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fedorov-xyz/yookassa-sdk/issues"
+  },
+  "homepage": "https://github.com/fedorov-xyz/yookassa-sdk#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.12.0",
+    "@types/eslint__js": "^8.42.3",
+    "eslint": "^9.12.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.8.0"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.12.2"
+  }
+}

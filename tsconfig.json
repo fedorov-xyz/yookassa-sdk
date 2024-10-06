@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "moduleResolution": "NodeNext",
+    "removeComments": true,
+    "sourceMap": false,
+    "baseUrl": "src",
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "downlevelIteration": true,
+    "typeRoots": ["./node_modules/@types", "@types"],
+    "strict": true,
+    "declaration": true,
+    "declarationDir": "./dist/types"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules"]
+}
