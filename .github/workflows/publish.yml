@@ -26,8 +26,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - uses: actions/setup-node@v4
         with:
@@ -61,7 +61,7 @@ jobs:
       - name: Pushing changes
         uses: ad-m/github-push-action@master
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          ssh: true
           branch: ${{ github.ref }}
 
       - name: Publushing prerelase
