@@ -38,4 +38,21 @@ export class YooKassaSDK {
       body,
     });
   }
+
+  getInvoice({
+    body,
+    idempotenceKey,
+  }: {
+    body: Schemas['CreateInvoiceRequest'];
+    idempotenceKey: string;
+  }) {
+    return this.client.POST('/invoices', {
+      params: {
+        header: {
+          ['Idempotence-Key']: idempotenceKey,
+        },
+      },
+      body,
+    });
+  }
 }

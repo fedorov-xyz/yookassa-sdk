@@ -24,4 +24,7 @@ export default TypeScriptESLint.config(
       '@typescript-eslint/no-unsafe-call': 'error',
     },
   },
+  {
+    ignores: ['dist'],
+  },
 );

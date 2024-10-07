@@ -27,43 +27,49 @@ paths:
       security:
         - BasicAuth: []
       responses:
-        '201':
-          description: Payment successfully created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Payment'
+        '200':
+          $ref: '#/components/responses/PaymentResponse'
         '400':
-          description: Invalid request
+          $ref: '#/components/responses/ErrorResponse'
         '401':
-          description: Unauthorized
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: Payment not found
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
 
-  /payments/{paymentId}:
+  /payments/{payment_id}:
     get:
       summary: Информация о платеже
       description: Запрос позволяет получить информацию о текущем состоянии платежа по его уникальному идентификатору
       parameters:
-        - name: paymentId
+        - name: payment_id
           in: path
           required: true
           description: ID платежа
           schema:
             type: string
       security:
-        - BasicAuth: [ ]
+        - BasicAuth: []
       responses:
         '200':
-          description: Payment retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Payment'
-        '404':
-          description: Payment not found
+          $ref: '#/components/responses/PaymentResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
         '401':
-          description: Unauthorized
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
 
   /payments/{payment_id}/cancel:
     post:
@@ -72,7 +78,7 @@ paths:
         Отменяет платеж, находящийся в статусе `waiting_for_capture`.
 
         Отмена платежа значит, что вы не готовы выдать пользователю товар или оказать услугу. Как только вы отменяете платеж, мы начинаем возвращать деньги на счет плательщика. Для платежей банковскими картами, из кошелька ЮMoney или через SberPay отмена происходит мгновенно. Для остальных способов оплаты возврат может занимать до нескольких дней
-        
+
         Подробнее: https://yookassa.ru/developers/payment-acceptance/getting-started/payment-process#capture-and-cancel
       parameters:
         - name: payment_id
@@ -86,11 +92,7 @@ paths:
         - BasicAuth: []
       responses:
         '200':
-          description: Payment successfully canceled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Payment'
+          $ref: '#/components/responses/PaymentResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
         '401':
@@ -120,11 +122,36 @@ paths:
         - BasicAuth: []
       responses:
         '200':
-          description: Созданный объект счета в актуальном статусе
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Invoice'
+          $ref: '#/components/responses/InvoiceResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /invoices/{invoice_id}:
+    get:
+      summary: Информация о счете
+      operationId: get-invoice
+      parameters:
+        - name: invoice_id
+          in: path
+          required: true
+          description: ID счёта
+          schema:
+            type: string
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/InvoiceResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
         '401':
@@ -160,6 +187,20 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+
+    PaymentResponse:
+      description: Объект платежа в актуальном статусе
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Payment'
+
+    InvoiceResponse:
+      description: Объект счёта в актуальном статусе
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Invoice'
 
   schemas:
     ErrorResponse:
@@ -206,7 +247,7 @@ components:
       type: object
       description: |
         Запрос на создание платежа
-        
+
         **FIXME**: Описать `airline`, `transfer`, `deal`, `receiver`
       properties:
         amount:
@@ -236,7 +277,7 @@ components:
           type: boolean
           description: |
             Сохранение платежных данных для проведения автоплатежей. Возможные значения:
-            
+
             - `true` — сохранить способ оплаты (сохранить платежные данные);
             - `false` — провести платеж без сохранения способа оплаты.
 
@@ -245,7 +286,7 @@ components:
           type: boolean
           description: |
             Автоматический прием  поступившего платежа. Возможные значения:
-            
+
             - `true` — оплата списывается сразу (платеж в одну стадию);
             - `false` — оплата холдируется и списывается по вашему запросу (платеж в две стадии).
           default: false
@@ -415,7 +456,7 @@ components:
           type: integer
           description: |
             Ставка НДС (тег в 54 ФЗ — 1199).
-            
+
             Для чеков по 54-ФЗ — перечень возможных значений:
              - для Чеков от ЮKassa: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#vat-codes
              - для сторонних онлайн-касс: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#vat-codes
@@ -451,17 +492,33 @@ components:
 
     Payment:
       type: object
+      description: |
+        Объект платежа (Payment) содержит всю информацию о платеже, актуальную на текущий момент времени. Он формируется при создании платежа и приходит в ответ на любой запрос, связанный с платежами.
+
+        Объект может содержать параметры и значения, не описанные в этом Справочнике API. Их следует игнорировать.
       properties:
         id:
           type: string
-          description: Unique identifier of the payment.
-          example: '249e2cf0-000f-5000-a000-1df11df15d3c'
+          description: Идентификатор платежа в ЮKassa
         status:
           type: string
-          description: Payment status.
-          example: 'pending'
+          description: Статус платежа
+          enum:
+            - pending
+            - waiting_for_capture
+            - succeeded
+            - canceled
         amount:
           $ref: '#/components/schemas/Amount'
+        income_amount:
+          description: Сумма платежа, которую получит магазин, — значение `amount` за вычетом комиссии ЮKassa
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+        description:
+          description: Описание транзакции (не более 128 символов), которое вы увидите в личном кабинете ЮKassa, а пользователь — при оплате
+          example: Оплата заказа № 72 для user@yoomoney.ru
+        recipient:
+          $ref: '#/components/schemas/Recipient'
         created_at:
           type: string
           format: date-time
@@ -474,12 +531,306 @@ components:
           format: date-time
           description: When the payment was captured.
           example: '2024-01-01T12:30:00Z'
-        description:
+      required:
+        - id
+        - status
+        - amount
+        - recipient
+
+    PaymentMethod:
+      oneOf:
+        - $ref: '#/components/schemas/PaymentMethodSberLoan'
+        - $ref: '#/components/schemas/PaymentMethodAlfabank'
+        - $ref: '#/components/schemas/PaymentMethodMobileBalance'
+        - $ref: '#/components/schemas/PaymentMethodBankCard'
+        - $ref: '#/components/schemas/PaymentMethodInstallments'
+        - $ref: '#/components/schemas/PaymentMethodCash'
+        - $ref: '#/components/schemas/PaymentMethodSBP'
+        - $ref: '#/components/schemas/PaymentMethodB2BSberbank'
+        - $ref: '#/components/schemas/PaymentMethodElectronicCertificate'
+        - $ref: '#/components/schemas/PaymentMethodYooMoney'
+        - $ref: '#/components/schemas/PaymentMethodApplePay'
+        - $ref: '#/components/schemas/PaymentMethodGooglePay'
+        - $ref: '#/components/schemas/PaymentMethodQiwi'
+        - $ref: '#/components/schemas/PaymentMethodSberbank'
+        - $ref: '#/components/schemas/PaymentMethodTinkoffBank'
+        - $ref: '#/components/schemas/PaymentMethodWeChat'
+        - $ref: '#/components/schemas/PaymentMethodWebMoney'
+
+    PaymentMethodBase:
+      type: object
+      required:
+        - id
+        - saved
+      properties:
+        id:
           type: string
-          description: Description of the payment.
-          example: 'Order #12345'
-        recipient:
-          $ref: '#/components/schemas/Recipient'
+        saved:
+          type: boolean
+        title:
+          type: string
+
+    PaymentMethodSberLoan:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: ['sber_loan']
+            login:
+              type: string
+            discount_amount:
+              $ref: '#/components/schemas/Amount'
+            loan_option:
+              type: string
+              enum: [loan, installments_3, installments_6, installments_12]
+
+    PaymentMethodAlfabank:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: ['alfabank']
+            login:
+              type: string
+
+    PaymentMethodMobileBalance:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: []
+      type: object
+      required:
+        - type
+        - id
+        - saved
+      properties:
+        type:
+          type: string
+          enum: [mobile_balance]
+        id:
+          type: string
+        saved:
+          type: boolean
+        title:
+          type: string
+
+    PaymentMethodBankCard:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [bank_card]
+            card:
+              $ref: '#/components/schemas/Card'
+
+    PaymentMethodInstallments:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [installments]
+
+    PaymentMethodCash:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [cash]
+
+    PaymentMethodSBP:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [sbp]
+
+    PaymentMethodB2BSberbank:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [b2b_sberbank]
+
+    PaymentMethodElectronicCertificate:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [electronic_certificate]
+
+    PaymentMethodYooMoney:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [yoo_money]
+            account_number:
+              type: string
+
+    PaymentMethodApplePay:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [apple_pay]
+
+    PaymentMethodGooglePay:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [google_pay]
+
+    PaymentMethodQiwi:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [qiwi]
+
+    PaymentMethodSberbank:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [sberbank]
+            card:
+              $ref: '#/components/schemas/Card'
+            phone:
+              type: string
+              example: 79000000000
+
+    PaymentMethodTinkoffBank:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [tinkoff_bank]
+            card:
+              $ref: '#/components/schemas/Card'
+
+    PaymentMethodWeChat:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [wechat]
+
+    PaymentMethodWebMoney:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [webmoney]
+
+    Card:
+      type: object
+      description: Данные банковской карты
+      properties:
+        first6:
+          type: string
+          description: Первые 6 цифр номера карты (BIN)
+        last4:
+          type: string
+          description: Последние 4 цифры номера карты
+        expiry_year:
+          type: string
+          description: Срок действия, год, YYYY
+        expiry_month:
+          type: string
+          description: Срок действия, месяц, MM
+        card_type:
+          type: string
+          enum:
+            - MasterCard
+            - Visa
+            - Mir
+            - UnionPay
+            - JCB
+            - AmericanExpress
+            - DinersClub
+            - DiscoverCard
+            - InstaPayment
+            - InstaPaymentTM
+            - Laser
+            - Dankort
+            - Solo
+            - Switch
+            - Unknown.
+      required:
+        - first6
+        - last4
+        - cart
+        - card_type
 
     Invoice:
       type: object
@@ -583,7 +934,7 @@ components:
           type: string
           description: |
             Статус платежа. Возможные значения:
-            
+
             - `waiting_for_capture` — для платежей в две стадии: платеж оплачен, деньги авторизованы, вам необходимо списать оплату или отменить платеж;
             - `succeeded` — платеж успешно завершен, деньги будут перечислены на ваш расчетный счет в соответствии с вашим договором с ЮKassa (финальный и неизменяемый статус);
             - `canceled` — для платежей в две стадии: вы отменили платеж по API (финальный и неизменяемый статус).

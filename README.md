@@ -1,2 +1,29 @@
-# yookassa-sdk
-YooKassa TypeScript SDK
+# YooKassa SDK ⚠️ DRAFT ⚠️
+
+Этот модуль предоставляет интерфейс для интеграции с YooKassa, позволяя выполнять различные операции, такие как создание платежей, возвратов и управление ими. Написан на TypeScript.
+
+Интерфейс SDK генерируется на основе openapi.yaml спецификации для API.
+
+## Установка
+
+Для установки используйте npm или yarn:
+
+```bash
+npm install yookassa-sdk-node
+# или
+yarn add yookassa-sdk-node
+```
+
+## Использование
+
+### Инициализация SDK
+
+TODO
+
+### Работа с платежами
+
+TODO
+
+### Работа со счетами
+
+TODO
