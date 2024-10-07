@@ -13,10 +13,111 @@ servers:
 
 paths:
   /payments:
+    get:
+      summary: Список платежей
+      operationId: get-payment-list
+      parameters:
+        - name: 'created_at.gte'
+          in: query
+          description: 'Фильтр по времени создания: время должно быть больше указанного значения или равно ему («с такого-то момента включительно»)'
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: 'created_at.gt'
+          in: query
+          description: 'Фильтр по времени создания: время должно быть больше указанного значения («с такого-то момента, не включая его»)'
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: 'created_at.lte'
+          in: query
+          description: 'Фильтр по времени создания: время должно быть меньше указанного значения или равно ему («по такой-то момент включительно»)'
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: 'created_at.lt'
+          in: query
+          description: 'Фильтр по времени создания: время должно быть меньше указанного значения («по такой-то момент, не включая его»)'
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: 'captured_at.gte'
+          in: query
+          description: 'Фильтр по времени подтверждения: время должно быть больше указанного значения или равно ему («с такого-то момента включительно»)'
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: 'captured_at.gt'
+          in: query
+          description: 'Фильтр по времени подтверждения: время должно быть больше указанного значения («с такого-то момента, не включая его»)'
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: 'captured_at.lte'
+          in: query
+          description: 'Фильтр по времени подтверждения: время должно быть меньше указанного значения или равно ему («по такой-то момент включительно»)'
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: 'captured_at.lt'
+          in: query
+          description: 'Фильтр по времени подтверждения: время должно быть меньше указанного значения («по такой-то момент, не включая его»)'
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: 'payment_method'
+          in: query
+          description: 'Фильтр по коду способа оплаты'
+          required: false
+          schema:
+            type: string
+        - name: 'status'
+          in: query
+          description: 'Фильтр по статусу платежа'
+          required: false
+          schema:
+            type: string
+        - name: 'limit'
+          in: query
+          description: 'Размер выдачи результатов запроса — количество объектов, передаваемых в ответе'
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: 'cursor'
+          in: query
+          description: 'Указатель на следующий фрагмент списка'
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentListResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
     post:
       summary: Создание платежа
       operationId: create-payment
-      description: Чтобы принять оплату, необходимо создать объект платежа — Payment. Он содержит всю необходимую информацию для проведения оплаты (сумму, валюту и статус). У платежа линейный жизненный цикл, он последовательно переходит из статуса в статус.
       requestBody:
         required: true
         content:
@@ -198,6 +299,27 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Payment'
+
+    PaymentListResponse:
+      description: Список платежей
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              type:
+                type: string
+                enum:
+                  - list
+              items:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+              next_cursor:
+                type: string
+            required:
+              - type
+              - items
 
     InvoiceResponse:
       description: Объект счёта в актуальном статусе
@@ -400,6 +522,26 @@ components:
         maxLength: 512
         maxProperties: 16
 
+    DateFilter:
+      type: object
+      properties:
+        gte:
+          type: string
+          description: Время должно быть больше указанного значения или равно ему («с такого-то момента включительно»)
+          example: 2018-07-18T10:51:18.139Z
+        gt:
+          type: string
+          description: Время должно быть больше указанного значения
+          example: 2018-07-18T10:51:18.139Z
+        lte:
+          type: string
+          description: Время должно быть меньше указанного значения или равно ему
+          example: 2018-07-18T10:51:18.139Z
+        lt:
+          type: string
+          description: Время должно быть меньше указанного значения
+          example: 2018-07-18T10:51:18.139Z
+
     Receipt:
       type: object
       description: |
@@ -496,10 +638,7 @@ components:
 
     Payment:
       type: object
-      description: |
-        Объект платежа (Payment) содержит всю информацию о платеже, актуальную на текущий момент времени. Он формируется при создании платежа и приходит в ответ на любой запрос, связанный с платежами.
-
-        Объект может содержать параметры и значения, не описанные в этом Справочнике API. Их следует игнорировать.
+      description: Объект платежа содержит всю информацию о платеже, актуальную на текущий момент времени
       properties:
         id:
           type: string
@@ -523,23 +662,156 @@ components:
           example: Оплата заказа № 72 для user@yoomoney.ru
         recipient:
           $ref: '#/components/schemas/Recipient'
-        created_at:
-          type: string
-          format: date-time
-          description: Date and time when the payment was created.
-          example: '2024-01-01T12:00:00Z'
-        confirmation:
-          $ref: '#/components/schemas/Confirmation'
         captured_at:
           type: string
           format: date-time
-          description: When the payment was captured.
-          example: '2024-01-01T12:30:00Z'
+          description: Время подтверждения платежа. Указывается по UTC и передается в формате ISO 8601
+          example: '2017-11-03T11:52:31.827Z'
+        created_at:
+          type: string
+          format: date-time
+          description: Время создания заказа. Указывается по UTC и передается в формате ISO 8601
+          example: '2017-11-03T11:52:31.827Z'
+        expires_at:
+          type: string
+          format: date-time
+          description: |
+            Время, до которого вы можете бесплатно отменить или подтвердить платеж. В указанное время платеж в статусе waiting_for_capture будет автоматически отменен. Указывается по UTC и передается в формате ISO 8601
+          example: '2017-11-03T11:52:31.827Z'
+        confirmation:
+          $ref: '#/components/schemas/Confirmation'
+        test:
+          type: boolean
+          description: Признак тестовой операции
+        refunded_amount:
+          $ref: '#/components/schemas/Amount'
+        paid:
+          type: boolean
+          description: Признак оплаты заказа
+        refundable:
+          type: boolean
+          description: Возможность провести возврат по API
+        receipt_registration:
+          type: string
+          description: |
+            Статус регистрации чека. Возможные значения:
+            - `pending` — данные в обработке;
+            - `succeeded` — чек успешно зарегистрирован;
+            - `canceled` — чек зарегистрировать не удалось; если используете Чеки от ЮKassa, обратитесь в техническую поддержку, в остальных случаях сформируйте чек вручную.
+            Присутствует, если вы используете решения ЮKassa для отправки чеков в налоговую.
+          enum:
+            - pending
+            - succeeded
+            - canceled
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+        cancellation_details:
+          type: object
+          description: |
+            Комментарий к статусу canceled: кто отменил платеж и по какой причине
+          properties:
+            party:
+              type: string
+              description: Участник процесса платежа, который принял решение об отмене транзакции
+              enum:
+                - yoo_money
+                - payment_network
+                - merchant
+            reason:
+              type: string
+              description: https://yookassa.ru/developers/payment-acceptance/after-the-payment/declined-payments#cancellation-details-reason
+              enum:
+                - 3d_secure_failed
+                - call_issuer
+                - canceled_by_merchant
+                - card_expired
+                - country_forbidden
+                - deal_expired
+                - expired_on_capture
+                - expired_on_confirmation
+                - fraud_suspected
+                - general_decline
+                - identification_required
+                - insufficient_funds
+                - internal_timeout
+                - invalid_card_number
+                - invalid_csc
+                - issuer_unavailable
+                - payment_method_limit_exceeded
+                - payment_method_restricted
+                - permission_revoked
+                - unsupported_mobile_operator
+          required:
+            - party
+            - reason
+        authorization_details:
+          type: object
+          description: |
+            Данные об авторизации платежа при оплате банковской картой.
+            Присутствуют только для этих способов оплаты: банковская карта, Mir Pay, SberPay, T-Pay.
+          properties:
+            rrn:
+              type: string
+              description: Retrieval Reference Number — уникальный идентификатор транзакции в системе эмитента
+            auth_code:
+              type: string
+              description: Код авторизации. Выдается эмитентом и подтверждает проведение авторизации
+            three_d_secure:
+              type: object
+              properties:
+                applied:
+                  type: boolean
+                  description: Отображение пользователю формы для прохождения аутентификации по 3‑D Secure
+              required:
+                - applied
+          required:
+            - three_d_secure
+        transfers:
+          type: array
+          description: Данные о распределении денег — сколько и в какой магазин нужно перевести. Присутствует, если вы используете Сплитование платежей
+          items:
+            type: object
+        deal:
+          type: object
+          description: Данные о сделке, в составе которой проходит платеж. Присутствует, если вы проводите Безопасную сделку
+          properties:
+            id:
+              type: string
+            settlements:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: ['payout']
+                  amount:
+                    $ref: '#/components/schemas/Amount'
+                required:
+                  - type
+                  - amount
+          required:
+            - id
+            - settlements
+        merchant_customer_id:
+          type: string
+          description: Идентификатор покупателя в вашей системе, например электронная почта или номер телефона. Присутствует, если вы хотите запомнить банковскую карту и отобразить ее при повторном платеже в виджете ЮKassa
+          maxLength: 200
+        invoice_details:
+          type: object
+          description: Данные о выставленном счете, в рамках которого проведен платеж
+          properties:
+            id:
+              type: string
+              description: Идентификатор счета в ЮКасса
       required:
         - id
         - status
         - amount
         - recipient
+        - created_at
+        - paid
+        - refundable
 
     PaymentMethod:
       oneOf:

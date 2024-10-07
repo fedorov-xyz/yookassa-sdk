@@ -1,7 +1,13 @@
 import createClient, { Client } from 'openapi-fetch';
-import type { paths, components } from './openapi';
+import type { paths, components, operations } from './openapi';
 
 export type Schemas = components['schemas'];
+
+export type CreatePaymentBody = components['schemas']['CreatePaymentRequest'];
+
+export type GetPaymentListQuery = operations['get-payment-list']['parameters']['query'];
+
+export type CreateInvoiceBody = components['schemas']['CreateInvoiceRequest'];
 
 interface SDKOptions {
   shopId: string;
@@ -22,13 +28,32 @@ export class YooKassaSDK {
 
   private readonly client: Client<paths>;
 
-  createInvoice({
-    body,
-    idempotenceKey,
-  }: {
-    body: Schemas['CreateInvoiceRequest'];
-    idempotenceKey: string;
-  }) {
+  createPayment({ body, idempotenceKey }: { body: CreatePaymentBody; idempotenceKey: string }) {
+    return this.client.POST('/payments', {
+      params: {
+        header: {
+          ['Idempotence-Key']: idempotenceKey,
+        },
+      },
+      body,
+    });
+  }
+
+  getPaymentList({ query }: { query: GetPaymentListQuery }) {
+    return this.client.GET('/payments', {
+      params: { query },
+    });
+  }
+
+  getPayment({ payment_id }: { payment_id: string }) {
+    return this.client.GET('/payments/{payment_id}', {
+      params: {
+        path: { payment_id },
+      },
+    });
+  }
+
+  createInvoice({ body, idempotenceKey }: { body: CreateInvoiceBody; idempotenceKey: string }) {
     return this.client.POST('/invoices', {
       params: {
         header: {

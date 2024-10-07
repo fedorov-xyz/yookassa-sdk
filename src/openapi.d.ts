@@ -8,15 +8,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** Список платежей */
+    get: operations['get-payment-list'];
     put?: never;
-    /**
-     * Создание платежа
-     *
-     * Чтобы принять оплату, необходимо создать объект платежа — Payment. Он содержит всю
-     * необходимую информацию для проведения оплаты (сумму, валюту и статус). У платежа линейный
-     * жизненный цикл, он последовательно переходит из статуса в статус.
-     */
+    /** Создание платежа */
     post: operations['create-payment'];
     delete?: never;
     options?: never;
@@ -284,6 +279,37 @@ export interface components {
     Metadata: {
       [key: string]: string;
     };
+    DateFilter: {
+      /**
+       * Время должно быть больше указанного значения или равно ему («с такого-то момента
+       * включительно»)
+       *
+       * @example
+       *   2018-07-18T10:51:18.139Z
+       */
+      gte?: string;
+      /**
+       * Время должно быть больше указанного значения
+       *
+       * @example
+       *   2018-07-18T10:51:18.139Z
+       */
+      gt?: string;
+      /**
+       * Время должно быть меньше указанного значения или равно ему
+       *
+       * @example
+       *   2018-07-18T10:51:18.139Z
+       */
+      lte?: string;
+      /**
+       * Время должно быть меньше указанного значения
+       *
+       * @example
+       *   2018-07-18T10:51:18.139Z
+       */
+      lt?: string;
+    };
     /**
      * Данные для формирования чека
      *
@@ -375,13 +401,7 @@ export interface components {
        */
       measure?: string;
     };
-    /**
-     * Объект платежа (Payment) содержит всю информацию о платеже, актуальную на текущий момент
-     * времени. Он формируется при создании платежа и приходит в ответ на любой запрос, связанный с
-     * платежами.
-     *
-     *     Объект может содержать параметры и значения, не описанные в этом Справочнике API. Их следует игнорировать.
-     */
+    /** Объект платежа содержит всю информацию о платеже, актуальную на текущий момент времени */
     Payment: {
       /** Идентификатор платежа в ЮKassa */
       id: string;
@@ -406,22 +426,128 @@ export interface components {
       /**
        * Format: date-time
        *
-       * Date and time when the payment was created.
+       * Время подтверждения платежа. Указывается по UTC и передается в формате ISO 8601
        *
        * @example
-       *   2024-01-01T12:00:00Z
+       *   2017-11-03T11:52:31.827Z
        */
-      created_at?: string;
-      confirmation?: components['schemas']['Confirmation'];
+      captured_at?: string;
       /**
        * Format: date-time
        *
-       * When the payment was captured.
+       * Время создания заказа. Указывается по UTC и передается в формате ISO 8601
        *
        * @example
-       *   2024-01-01T12:30:00Z
+       *   2017-11-03T11:52:31.827Z
        */
-      captured_at?: string;
+      created_at: string;
+      /**
+       * Format: date-time
+       *
+       * Время, до которого вы можете бесплатно отменить или подтвердить платеж. В указанное время
+       * платеж в статусе waiting_for_capture будет автоматически отменен. Указывается по UTC и
+       * передается в формате ISO 8601
+       *
+       * @example
+       *   2017-11-03T11:52:31.827Z
+       */
+      expires_at?: string;
+      confirmation?: components['schemas']['Confirmation'];
+      /** Признак тестовой операции */
+      test?: boolean;
+      refunded_amount?: components['schemas']['Amount'];
+      /** Признак оплаты заказа */
+      paid: boolean;
+      /** Возможность провести возврат по API */
+      refundable: boolean;
+      /**
+       * Статус регистрации чека. Возможные значения: - `pending` — данные в обработке; -
+       * `succeeded` — чек успешно зарегистрирован; - `canceled` — чек зарегистрировать не удалось;
+       * если используете Чеки от ЮKassa, обратитесь в техническую поддержку, в остальных случаях
+       * сформируйте чек вручную. Присутствует, если вы используете решения ЮKassa для отправки
+       * чеков в налоговую.
+       *
+       * @enum {string}
+       */
+      receipt_registration?: 'pending' | 'succeeded' | 'canceled';
+      metadata?: components['schemas']['Metadata'];
+      /** Комментарий к статусу canceled: кто отменил платеж и по какой причине */
+      cancellation_details?: {
+        /**
+         * Участник процесса платежа, который принял решение об отмене транзакции
+         *
+         * @enum {string}
+         */
+        party: 'yoo_money' | 'payment_network' | 'merchant';
+        /**
+         * https://yookassa.ru/developers/payment-acceptance/after-the-payment/declined-payments#cancellation-details-reason
+         *
+         * @enum {string}
+         */
+        reason:
+          | '3d_secure_failed'
+          | 'call_issuer'
+          | 'canceled_by_merchant'
+          | 'card_expired'
+          | 'country_forbidden'
+          | 'deal_expired'
+          | 'expired_on_capture'
+          | 'expired_on_confirmation'
+          | 'fraud_suspected'
+          | 'general_decline'
+          | 'identification_required'
+          | 'insufficient_funds'
+          | 'internal_timeout'
+          | 'invalid_card_number'
+          | 'invalid_csc'
+          | 'issuer_unavailable'
+          | 'payment_method_limit_exceeded'
+          | 'payment_method_restricted'
+          | 'permission_revoked'
+          | 'unsupported_mobile_operator';
+      };
+      /**
+       * Данные об авторизации платежа при оплате банковской картой. Присутствуют только для этих
+       * способов оплаты: банковская карта, Mir Pay, SberPay, T-Pay.
+       */
+      authorization_details?: {
+        /** Retrieval Reference Number — уникальный идентификатор транзакции в системе эмитента */
+        rrn?: string;
+        /** Код авторизации. Выдается эмитентом и подтверждает проведение авторизации */
+        auth_code?: string;
+        three_d_secure: {
+          /** Отображение пользователю формы для прохождения аутентификации по 3‑D Secure */
+          applied: boolean;
+        };
+      };
+      /**
+       * Данные о распределении денег — сколько и в какой магазин нужно перевести. Присутствует,
+       * если вы используете Сплитование платежей
+       */
+      transfers?: Record<string, never>[];
+      /**
+       * Данные о сделке, в составе которой проходит платеж. Присутствует, если вы проводите
+       * Безопасную сделку
+       */
+      deal?: {
+        id: string;
+        settlements: {
+          /** @enum {string} */
+          type: 'payout';
+          amount: components['schemas']['Amount'];
+        }[];
+      };
+      /**
+       * Идентификатор покупателя в вашей системе, например электронная почта или номер телефона.
+       * Присутствует, если вы хотите запомнить банковскую карту и отобразить ее при повторном
+       * платеже в виджете ЮKassa
+       */
+      merchant_customer_id?: string;
+      /** Данные о выставленном счете, в рамках которого проведен платеж */
+      invoice_details?: {
+        /** Идентификатор счета в ЮКасса */
+        id?: string;
+      };
     };
     PaymentMethod:
       | components['schemas']['PaymentMethodSberLoan']
@@ -825,6 +951,20 @@ export interface components {
         'application/json': components['schemas']['Payment'];
       };
     };
+    /** Список платежей */
+    PaymentListResponse: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          type: 'list';
+          items: components['schemas']['Payment'][];
+          next_cursor?: string;
+        };
+      };
+    };
     /** Объект счёта в актуальном статусе */
     InvoiceResponse: {
       headers: {
@@ -844,6 +984,73 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  'get-payment-list': {
+    parameters: {
+      query?: {
+        /**
+         * Фильтр по времени создания: время должно быть больше указанного значения или равно ему
+         * («с такого-то момента включительно»)
+         */
+        'created_at.gte'?: string;
+        /**
+         * Фильтр по времени создания: время должно быть больше указанного значения («с такого-то
+         * момента, не включая его»)
+         */
+        'created_at.gt'?: string;
+        /**
+         * Фильтр по времени создания: время должно быть меньше указанного значения или равно ему
+         * («по такой-то момент включительно»)
+         */
+        'created_at.lte'?: string;
+        /**
+         * Фильтр по времени создания: время должно быть меньше указанного значения («по такой-то
+         * момент, не включая его»)
+         */
+        'created_at.lt'?: string;
+        /**
+         * Фильтр по времени подтверждения: время должно быть больше указанного значения или равно
+         * ему («с такого-то момента включительно»)
+         */
+        'captured_at.gte'?: string;
+        /**
+         * Фильтр по времени подтверждения: время должно быть больше указанного значения («с
+         * такого-то момента, не включая его»)
+         */
+        'captured_at.gt'?: string;
+        /**
+         * Фильтр по времени подтверждения: время должно быть меньше указанного значения или равно
+         * ему («по такой-то момент включительно»)
+         */
+        'captured_at.lte'?: string;
+        /**
+         * Фильтр по времени подтверждения: время должно быть меньше указанного значения («по
+         * такой-то момент, не включая его»)
+         */
+        'captured_at.lt'?: string;
+        /** Фильтр по коду способа оплаты */
+        payment_method?: string;
+        /** Фильтр по статусу платежа */
+        status?: string;
+        /** Размер выдачи результатов запроса — количество объектов, передаваемых в ответе */
+        limit?: number;
+        /** Указатель на следующий фрагмент списка */
+        cursor?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['PaymentListResponse'];
+      400: components['responses']['ErrorResponse'];
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      404: components['responses']['ErrorResponse'];
+      429: components['responses']['ErrorResponse'];
+      500: components['responses']['ErrorResponse'];
+    };
+  };
   'create-payment': {
     parameters: {
       query?: never;
