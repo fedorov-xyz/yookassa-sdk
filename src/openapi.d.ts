@@ -17,30 +17,7 @@ export interface paths {
      * необходимую информацию для проведения оплаты (сумму, валюту и статус). У платежа линейный
      * жизненный цикл, он последовательно переходит из статуса в статус.
      */
-    post: {
-      parameters: {
-        query?: never;
-        header: {
-          'Idempotence-Key': components['parameters']['IdempotenceKey'];
-        };
-        path?: never;
-        cookie?: never;
-      };
-      requestBody: {
-        content: {
-          'application/json': components['schemas']['CreatePaymentRequest'];
-        };
-      };
-      responses: {
-        200: components['responses']['PaymentResponse'];
-        400: components['responses']['ErrorResponse'];
-        401: components['responses']['ErrorResponse'];
-        403: components['responses']['ErrorResponse'];
-        404: components['responses']['ErrorResponse'];
-        429: components['responses']['ErrorResponse'];
-        500: components['responses']['ErrorResponse'];
-      };
-    };
+    post: operations['create-payment'];
     delete?: never;
     options?: never;
     head?: never;
@@ -60,27 +37,7 @@ export interface paths {
      * Запрос позволяет получить информацию о текущем состоянии платежа по его уникальному
      * идентификатору
      */
-    get: {
-      parameters: {
-        query?: never;
-        header?: never;
-        path: {
-          /** ID платежа */
-          payment_id: string;
-        };
-        cookie?: never;
-      };
-      requestBody?: never;
-      responses: {
-        200: components['responses']['PaymentResponse'];
-        400: components['responses']['ErrorResponse'];
-        401: components['responses']['ErrorResponse'];
-        403: components['responses']['ErrorResponse'];
-        404: components['responses']['ErrorResponse'];
-        429: components['responses']['ErrorResponse'];
-        500: components['responses']['ErrorResponse'];
-      };
-    };
+    get: operations['get-payment'];
     put?: never;
     post?: never;
     delete?: never;
@@ -104,32 +61,8 @@ export interface paths {
      * Отменяет платеж, находящийся в статусе `waiting_for_capture`.
      *
      *     Отмена платежа значит, что вы не готовы выдать пользователю товар или оказать услугу. Как только вы отменяете платеж, мы начинаем возвращать деньги на счет плательщика. Для платежей банковскими картами, из кошелька ЮMoney или через SberPay отмена происходит мгновенно. Для остальных способов оплаты возврат может занимать до нескольких дней
-     *
-     *     Подробнее: https://yookassa.ru/developers/payment-acceptance/getting-started/payment-process#capture-and-cancel
      */
-    post: {
-      parameters: {
-        query?: never;
-        header: {
-          'Idempotence-Key': components['parameters']['IdempotenceKey'];
-        };
-        path: {
-          /** ID платежа */
-          payment_id: string;
-        };
-        cookie?: never;
-      };
-      requestBody?: never;
-      responses: {
-        200: components['responses']['PaymentResponse'];
-        400: components['responses']['ErrorResponse'];
-        401: components['responses']['ErrorResponse'];
-        403: components['responses']['ErrorResponse'];
-        404: components['responses']['ErrorResponse'];
-        429: components['responses']['ErrorResponse'];
-        500: components['responses']['ErrorResponse'];
-      };
-    };
+    post: operations['cancel-payment'];
     delete?: never;
     options?: never;
     head?: never;
@@ -187,12 +120,14 @@ export interface components {
        */
       id: string;
       /**
-       * Код ошибки - `invalid_request` — неправильный запрос, например ошибка в значении параметра
-       * или нарушение логики проведения операции (HTTP 400) - `invalid_credentials` — некорректные
-       * данные для аутентификации запросов (HTTP 401) - `forbidden` — не хватает прав для
-       * выполнения операции (HTTP 403) - `not_found` — запрашиваемый ресурс не найден (HTTP 404) -
-       * `too_many_requests` — превышен лимит запросов в единицу времени (HTTP 429) -
-       * `internal_server_error` — технические неполадки на стороне ЮKassa (HTTP 500)
+       * Код ошибки
+       *
+       *     - `invalid_request` — неправильный запрос, например ошибка в значении параметра или нарушение логики проведения операции (HTTP 400)
+       *     - `invalid_credentials` — некорректные данные для аутентификации запросов (HTTP 401)
+       *     - `forbidden` — не хватает прав для выполнения операции (HTTP 403)
+       *     - `not_found` — запрашиваемый ресурс не найден (HTTP 404)
+       *     - `too_many_requests` — превышен лимит запросов в единицу времени (HTTP 429)
+       *     - `internal_server_error` — технические неполадки на стороне ЮKassa (HTTP 500)
        *
        * @enum {string}
        */
@@ -909,6 +844,74 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  'create-payment': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotence-Key': components['parameters']['IdempotenceKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreatePaymentRequest'];
+      };
+    };
+    responses: {
+      200: components['responses']['PaymentResponse'];
+      400: components['responses']['ErrorResponse'];
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      404: components['responses']['ErrorResponse'];
+      429: components['responses']['ErrorResponse'];
+      500: components['responses']['ErrorResponse'];
+    };
+  };
+  'get-payment': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** ID платежа */
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['PaymentResponse'];
+      400: components['responses']['ErrorResponse'];
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      404: components['responses']['ErrorResponse'];
+      429: components['responses']['ErrorResponse'];
+      500: components['responses']['ErrorResponse'];
+    };
+  };
+  'cancel-payment': {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotence-Key': components['parameters']['IdempotenceKey'];
+      };
+      path: {
+        /** ID платежа */
+        payment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: components['responses']['PaymentResponse'];
+      400: components['responses']['ErrorResponse'];
+      401: components['responses']['ErrorResponse'];
+      403: components['responses']['ErrorResponse'];
+      404: components['responses']['ErrorResponse'];
+      429: components['responses']['ErrorResponse'];
+      500: components['responses']['ErrorResponse'];
+    };
+  };
   'create-invoice': {
     parameters: {
       query?: never;

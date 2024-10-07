@@ -15,6 +15,7 @@ paths:
   /payments:
     post:
       summary: Создание платежа
+      operationId: create-payment
       description: Чтобы принять оплату, необходимо создать объект платежа — Payment. Он содержит всю необходимую информацию для проведения оплаты (сумму, валюту и статус). У платежа линейный жизненный цикл, он последовательно переходит из статуса в статус.
       requestBody:
         required: true
@@ -45,6 +46,7 @@ paths:
   /payments/{payment_id}:
     get:
       summary: Информация о платеже
+      operationId: get-payment
       description: Запрос позволяет получить информацию о текущем состоянии платежа по его уникальному идентификатору
       parameters:
         - name: payment_id
@@ -74,12 +76,14 @@ paths:
   /payments/{payment_id}/cancel:
     post:
       summary: Отмена платежа
+      operationId: cancel-payment
       description: |
         Отменяет платеж, находящийся в статусе `waiting_for_capture`.
 
         Отмена платежа значит, что вы не готовы выдать пользователю товар или оказать услугу. Как только вы отменяете платеж, мы начинаем возвращать деньги на счет плательщика. Для платежей банковскими картами, из кошелька ЮMoney или через SberPay отмена происходит мгновенно. Для остальных способов оплаты возврат может занимать до нескольких дней
-
-        Подробнее: https://yookassa.ru/developers/payment-acceptance/getting-started/payment-process#capture-and-cancel
+      externalDocs:
+        description: Документация YooKassa
+        url: https://yookassa.ru/developers/payment-acceptance/getting-started/payment-process#capture-and-cancel
       parameters:
         - name: payment_id
           in: path
@@ -216,7 +220,7 @@ components:
           example: '249e2cf0-000f-5000-a000-1df11df15d3c'
         code:
           type: string
-          description: >
+          description: |
             Код ошибки
 
             - `invalid_request` — неправильный запрос, например ошибка в значении параметра или нарушение логики проведения операции (HTTP 400)

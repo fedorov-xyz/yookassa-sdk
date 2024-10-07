@@ -48,7 +48,13 @@ const { error, data: invoice } = await sdk.createInvoice({
         currency: 'RUB',
       },
     },
-    cart: [{ description: 'Модная шапка', price: { value: '100.00', currency: 'RUB' }, quantity: 1 }],
+    cart: [
+      {
+        description: 'Модная шапка',
+        price: { value: '100.00', currency: 'RUB' },
+        quantity: 1,
+      },
+    ],
     expires_at: addHours(new Date(), 1).toISOString(),
   },
   idempotenceKey: '10a3cc09-e1d7-4cd4-ba24-01fcef6522bf',
@@ -64,7 +70,10 @@ console.log(invoice.status);
 #### Получение счёта
 
 ```ts
-const { error, data: invoice } = await sdk.getInvoice({ invoice_id: '10a3cc09-e1d7-4cd4-ba24-01fcef6522bf' });
+const { error, data: invoice } = await sdk.getInvoice({
+  invoice_id: '10a3cc09-e1d7-4cd4-ba24-01fcef6522bf',
+});
+
 if (error) {
   throw new Error('Failed to get invoice');
 }
