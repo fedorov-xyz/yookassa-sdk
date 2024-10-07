@@ -39,20 +39,11 @@ export class YooKassaSDK {
     });
   }
 
-  getInvoice({
-    body,
-    idempotenceKey,
-  }: {
-    body: Schemas['CreateInvoiceRequest'];
-    idempotenceKey: string;
-  }) {
-    return this.client.POST('/invoices', {
+  getInvoice({ invoice_id }: { invoice_id: string }) {
+    return this.client.GET('/invoices/{invoice_id}', {
       params: {
-        header: {
-          ['Idempotence-Key']: idempotenceKey,
-        },
+        path: { invoice_id },
       },
-      body,
     });
   }
 }
