@@ -9,6 +9,8 @@ export type GetPaymentListQuery = operations['get-payment-list']['parameters']['
 
 export type CreateInvoiceBody = components['schemas']['CreateInvoiceRequest'];
 
+export type WebhookEvent = components['schemas']['WebhookEvent'];
+
 interface SDKOptions {
   shopId: string;
   secretKey: string;
