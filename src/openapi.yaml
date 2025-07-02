@@ -662,6 +662,8 @@ components:
           example: Оплата заказа № 72 для user@yoomoney.ru
         recipient:
           $ref: '#/components/schemas/Recipient'
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethod'
         captured_at:
           type: string
           format: date-time
