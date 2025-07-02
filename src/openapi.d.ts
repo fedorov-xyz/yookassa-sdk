@@ -423,6 +423,7 @@ export interface components {
        */
       description?: unknown;
       recipient: components['schemas']['Recipient'];
+      payment_method?: components['schemas']['PaymentMethod'];
       /**
        * Format: date-time
        *
