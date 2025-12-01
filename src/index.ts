@@ -14,13 +14,16 @@ export type WebhookEvent = components['schemas']['WebhookEvent'];
 interface SDKOptions {
   shopId: string;
   secretKey: string;
-  /** Custom fetch (defaults to globalThis.fetch) */
-  fetch?: (input: Request) => Promise<Response>;
+  /**
+   * RequestInit extension object to pass as 2nd argument to fetch when supported (defaults to
+   * undefined)
+   */
+  requestInitExt?: Record<string, unknown>;
 }
 
 export class YooKassaSDK {
-  constructor({ shopId, secretKey, fetch }: SDKOptions) {
-    this.client = createClient<paths>({ baseUrl: 'https://api.yookassa.ru/v3/', fetch });
+  constructor({ shopId, secretKey, requestInitExt }: SDKOptions) {
+    this.client = createClient<paths>({ baseUrl: 'https://api.yookassa.ru/v3/', requestInitExt });
 
     this.client.use({
       onRequest({ request }) {
