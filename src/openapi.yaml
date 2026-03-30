@@ -397,8 +397,7 @@ components:
           type: object
           description: FIXME
         confirmation:
-          type: object
-          description: FIXME
+          $ref: '#/components/schemas/CreatePaymentConfirmation'
         save_payment_method:
           type: boolean
           description: |
@@ -1254,6 +1253,96 @@ components:
         - $ref: '#/components/schemas/ConfirmationMobileApplication'
         - $ref: '#/components/schemas/ConfirmationQR'
         - $ref: '#/components/schemas/ConfirmationRedirect'
+
+    CreatePaymentConfirmation:
+      description: Данные, необходимые для инициирования выбранного сценария подтверждения платежа пользователем
+      oneOf:
+        - $ref: '#/components/schemas/CreatePaymentConfirmationEmbedded'
+        - $ref: '#/components/schemas/CreatePaymentConfirmationExternal'
+        - $ref: '#/components/schemas/CreatePaymentConfirmationMobileApplication'
+        - $ref: '#/components/schemas/CreatePaymentConfirmationQR'
+        - $ref: '#/components/schemas/CreatePaymentConfirmationRedirect'
+
+    CreatePaymentConfirmationBase:
+      type: object
+      properties:
+        locale:
+          type: string
+          description: Язык интерфейса, писем и смс, которые будет видеть или получать пользователь
+          enum:
+            - ru_RU
+            - en_US
+
+    CreatePaymentConfirmationEmbedded:
+      allOf:
+        - $ref: '#/components/schemas/CreatePaymentConfirmationBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: ['embedded']
+          required:
+            - type
+
+    CreatePaymentConfirmationExternal:
+      allOf:
+        - $ref: '#/components/schemas/CreatePaymentConfirmationBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: ['external']
+          required:
+            - type
+
+    CreatePaymentConfirmationMobileApplication:
+      allOf:
+        - $ref: '#/components/schemas/CreatePaymentConfirmationBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: ['mobile_application']
+            return_url:
+              type: string
+              description: URL или диплинк, на который вернется пользователь после подтверждения или отмены платежа в приложении
+          required:
+            - type
+            - return_url
+
+    CreatePaymentConfirmationQR:
+      allOf:
+        - $ref: '#/components/schemas/CreatePaymentConfirmationBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: ['qr']
+            return_url:
+              type: string
+              description: Адрес страницы, на которую пользователь вернется после подтверждения или отмены платежа в приложении банка
+              maxLength: 2048
+          required:
+            - type
+
+    CreatePaymentConfirmationRedirect:
+      allOf:
+        - $ref: '#/components/schemas/CreatePaymentConfirmationBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: ['redirect']
+            enforce:
+              type: boolean
+              description: Запрос на проведение платежа с аутентификацией по 3-D Secure
+            return_url:
+              type: string
+              description: URL, на который вернется пользователь после подтверждения или отмены платежа на веб-странице
+              maxLength: 2048
+          required:
+            - type
+            - return_url
 
     ConfirmationEmbedded:
       type: object

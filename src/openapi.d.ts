@@ -164,8 +164,7 @@ export interface components {
       payment_method_id?: string;
       /** FIXME */
       payment_method_data?: Record<string, never>;
-      /** FIXME */
-      confirmation?: Record<string, never>;
+      confirmation?: components['schemas']['CreatePaymentConfirmation'];
       /**
        * Сохранение платежных данных для проведения автоплатежей. Возможные значения:
        *
@@ -823,6 +822,58 @@ export interface components {
       | components['schemas']['ConfirmationMobileApplication']
       | components['schemas']['ConfirmationQR']
       | components['schemas']['ConfirmationRedirect'];
+    /** Данные, необходимые для инициирования выбранного сценария подтверждения платежа пользователем */
+    CreatePaymentConfirmation:
+      | components['schemas']['CreatePaymentConfirmationEmbedded']
+      | components['schemas']['CreatePaymentConfirmationExternal']
+      | components['schemas']['CreatePaymentConfirmationMobileApplication']
+      | components['schemas']['CreatePaymentConfirmationQR']
+      | components['schemas']['CreatePaymentConfirmationRedirect'];
+    CreatePaymentConfirmationBase: {
+      /**
+       * Язык интерфейса, писем и смс, которые будет видеть или получать пользователь
+       *
+       * @enum {string}
+       */
+      locale?: 'ru_RU' | 'en_US';
+    };
+    CreatePaymentConfirmationEmbedded: components['schemas']['CreatePaymentConfirmationBase'] & {
+      /** @enum {string} */
+      type: 'embedded';
+    };
+    CreatePaymentConfirmationExternal: components['schemas']['CreatePaymentConfirmationBase'] & {
+      /** @enum {string} */
+      type: 'external';
+    };
+    CreatePaymentConfirmationMobileApplication: components['schemas']['CreatePaymentConfirmationBase'] & {
+      /** @enum {string} */
+      type: 'mobile_application';
+      /**
+       * URL или диплинк, на который вернется пользователь после подтверждения или отмены платежа в
+       * приложении
+       */
+      return_url: string;
+    };
+    CreatePaymentConfirmationQR: components['schemas']['CreatePaymentConfirmationBase'] & {
+      /** @enum {string} */
+      type: 'qr';
+      /**
+       * Адрес страницы, на которую пользователь вернется после подтверждения или отмены платежа в
+       * приложении банка
+       */
+      return_url?: string;
+    };
+    CreatePaymentConfirmationRedirect: components['schemas']['CreatePaymentConfirmationBase'] & {
+      /** @enum {string} */
+      type: 'redirect';
+      /** Запрос на проведение платежа с аутентификацией по 3-D Secure */
+      enforce?: boolean;
+      /**
+       * URL, на который вернется пользователь после подтверждения или отмены платежа на
+       * веб-странице
+       */
+      return_url: string;
+    };
     /**
      * Действия, необходимые для подтверждения платежа, будут зависеть от способа оплаты, который
      * пользователь выберет в виджете ЮKassa. Подтверждение от пользователя получит ЮKassa — вам
