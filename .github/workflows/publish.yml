@@ -21,7 +21,8 @@ on:
 run-name: Publish ${{ inputs.type }} ${{ inputs.custom_version }}
 
 permissions:
-  id-token: write
+  id-token: write  # Required for OIDC
+  contents: read
 
 jobs:
   publish:
@@ -32,9 +33,9 @@ jobs:
           fetch-depth: 0
           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 25
           cache: npm
           registry-url: 'https://registry.npmjs.org'
 
@@ -42,13 +43,6 @@ jobs:
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Action"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-          always-auth: true
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
