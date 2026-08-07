@@ -100,6 +100,8 @@ paths:
           required: false
           schema:
             type: string
+      security:
+        - BasicAuth: []
       responses:
         '200':
           $ref: '#/components/responses/PaymentListResponse'
@@ -156,6 +158,52 @@ paths:
           description: ID платежа
           schema:
             type: string
+      security:
+        - BasicAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/PaymentResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /payments/{payment_id}/capture:
+    post:
+      summary: Подтверждение платежа
+      operationId: capture-payment
+      description: |
+        Подтверждает вашу готовность принять платеж. После подтверждения статус платежа изменится на `succeeded`,
+        и вы сможете выдать товар или оказать услугу пользователю.
+
+        Подтвердить можно только платеж в статусе `waiting_for_capture` и только в определённый срок
+        (зависит от способа оплаты). Если не подтвердить платёж вовремя, он перейдёт в `canceled`,
+        а деньги вернутся пользователю.
+      externalDocs:
+        description: Документация YooKassa
+        url: https://yookassa.ru/developers/payment-acceptance/getting-started/payment-process#capture-and-cancel
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          description: ID платежа
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotenceKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CapturePaymentRequest'
       security:
         - BasicAuth: []
       responses:
@@ -372,21 +420,21 @@ components:
     CreatePaymentRequest:
       type: object
       description: |
-        Запрос на создание платежа
-
-        **FIXME**: Описать `airline`, `transfer`, `deal`, `receiver`
+        Запрос на создание платежа.
+        Подробнее: https://yookassa.ru/developers/api#create_payment
       properties:
         amount:
           $ref: '#/components/schemas/Amount'
         description:
           type: string
+          maxLength: 128
           description: >
             Описание транзакции (не более 128 символов), которое вы увидите в личном кабинете ЮKassa, а пользователь — при оплате
           example: 'Оплата заказа № 72 для user@yoomoney.ru'
         receipt:
           $ref: '#/components/schemas/Receipt'
         recipient:
-          $ref: '#/components/schemas/Recipient'
+          $ref: '#/components/schemas/CreatePaymentRecipient'
         payment_token:
           type: string
           description: Одноразовый токен для проведения оплаты, сформированный с помощью Checkout.js или мобильного SDK
@@ -394,8 +442,7 @@ components:
           type: string
           description: Идентификатор сохраненного способа оплаты
         payment_method_data:
-          type: object
-          description: FIXME
+          $ref: '#/components/schemas/PaymentMethodData'
         confirmation:
           $ref: '#/components/schemas/CreatePaymentConfirmation'
         save_payment_method:
@@ -410,7 +457,7 @@ components:
         capture:
           type: boolean
           description: |
-            Автоматический прием  поступившего платежа. Возможные значения:
+            Автоматический прием поступившего платежа. Возможные значения:
 
             - `true` — оплата списывается сразу (платеж в одну стадию);
             - `false` — оплата холдируется и списывается по вашему запросу (платеж в две стадии).
@@ -419,21 +466,62 @@ components:
           type: string
           description: IPv4 или IPv6-адрес пользователя. Если не указан, используется IP-адрес TCP-подключения
         metadata:
-          type: object
+          $ref: '#/components/schemas/Metadata'
+        airline:
+          $ref: '#/components/schemas/Airline'
+        transfers:
+          type: array
           description: |
-            Любые дополнительные данные, которые нужны вам для работы (например, ваш внутренний идентификатор заказа). 
-            Передаются в виде набора пар «ключ-значение» и возвращаются в ответе от ЮKassa.
-            Ограничения: максимум 16 ключей, имя ключа не больше 32 символов, значение ключа не больше 512 символов, тип данных — строка в формате UTF-8.
-          additionalProperties:
-            type: string
-            description: Значение ключа, не больше 512 символов, строка в формате UTF-8
-            maxLength: 512
-            maxProperties: 16
+            Данные о распределении денег — сколько и в какой магазин нужно перевести.
+            Передается, если вы используете Сплитование платежей:
+            https://yookassa.ru/developers/solutions-for-platforms/split-payments/basics
+          items:
+            $ref: '#/components/schemas/TransferData'
+        deal:
+          $ref: '#/components/schemas/PaymentDeal'
         merchant_customer_id:
           type: string
+          maxLength: 200
           description: Идентификатор покупателя в вашей системе, например электронная почта или номер телефона. Не более 200 символов. Присутствует, если вы хотите запомнить банковскую карту и отобразить ее при повторном платеже в виджете ЮKassa.
+        receiver:
+          $ref: '#/components/schemas/PaymentReceiver'
       required:
         - amount
+
+    CapturePaymentRequest:
+      type: object
+      description: |
+        Тело запроса на подтверждение платежа.
+        Все поля необязательны: если не передать `amount`, будет списана полная сумма платежа.
+      properties:
+        amount:
+          description: |
+            Сумма к списанию с пользователя. Можно указать часть исходной суммы, если способ оплаты поддерживает частичное списание:
+            https://yookassa.ru/developers/payment-acceptance/getting-started/payment-process#capture-partly
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+        receipt:
+          $ref: '#/components/schemas/Receipt'
+        airline:
+          $ref: '#/components/schemas/Airline'
+        transfers:
+          type: array
+          description: |
+            Данные о распределении денег при частичном подтверждении, если используете Сплитование платежей
+          items:
+            $ref: '#/components/schemas/TransferDataBase'
+        deal:
+          type: object
+          description: |
+            Данные о сделке при частичном подтверждении, если используете Безопасную сделку
+          properties:
+            settlements:
+              type: array
+              description: Данные о распределении денег
+              items:
+                $ref: '#/components/schemas/DealSettlement'
+          required:
+            - settlements
 
     CreateInvoiceRequest:
       type: object
@@ -458,6 +546,8 @@ components:
           enum:
             - ru_RU
             - en_US
+        delivery_method_data:
+          $ref: '#/components/schemas/InvoiceDeliveryMethodData'
         description:
           type: string
           description: Описание выставленного счета (не более 128 символов), которое вы увидите в личном кабинете ЮKassa, а пользователь на странице счета
@@ -479,7 +569,7 @@ components:
         receipt:
           $ref: '#/components/schemas/Receipt'
         recipient:
-          $ref: '#/components/schemas/Recipient'
+          $ref: '#/components/schemas/CreatePaymentRecipient'
         save_payment_method:
           type: boolean
           description: |
@@ -544,17 +634,51 @@ components:
     Receipt:
       type: object
       description: |
-        Данные для формирования чека
-
-        **FIXME: Нужно описать недостающие необязательные поля**
+        Данные для формирования чека.
+        Параметр передаётся, если вы используете Чеки от ЮKassa или стороннюю онлайн-кассу и отправляете данные для чека вместе с платежом.
       properties:
         customer:
           $ref: '#/components/schemas/Customer'
         items:
           type: array
-          description: Список товаров или услуг, включенных в чек.
+          description: |
+            Список товаров в заказе. Для Чеков от ЮKassa — до 80 позиций, для сторонних онлайн-касс — до 100.
           items:
             $ref: '#/components/schemas/ReceiptItem'
+        internet:
+          type: boolean
+          description: |
+            Признак проведения платежа в интернете (тег в 54 ФЗ — 1125).
+
+            - `true` — оплата прошла онлайн (по умолчанию);
+            - `false` — оплата прошла офлайн.
+          default: true
+        tax_system_code:
+          type: integer
+          description: |
+            Система налогообложения магазина (тег в 54 ФЗ — 1055).
+            Для сторонних онлайн-касс: обязательный параметр, если используете Атол Онлайн (ФФД 1.2) или у вас несколько СНО.
+            Для Чеков от ЮKassa параметр передавать не нужно.
+            Перечень значений: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#tax-systems
+          minimum: 1
+          maximum: 6
+        timezone:
+          type: integer
+          description: |
+            Номер часовой зоны для адреса приёма платежей (тег в 54 ФЗ — 1011).
+            Указывается, только если в чеке есть товары с обязательной маркировкой
+            (в `items.mark_code_info` передаётся `gs_1m`, `short` или `fur`).
+          minimum: 1
+          maximum: 11
+        receipt_industry_details:
+          type: array
+          description: |
+            Отраслевой реквизит чека (тег в 54 ФЗ — 1261).
+            Можно передавать, если используете Чеки от ЮKassa или онлайн-кассу, обновлённую до ФФД 1.2.
+          items:
+            $ref: '#/components/schemas/IndustryDetails'
+        receipt_operational_details:
+          $ref: '#/components/schemas/OperationalDetails'
       required:
         - items
 
@@ -565,6 +689,7 @@ components:
       properties:
         full_name:
           type: string
+          maxLength: 256
           description: |
             Для юрлица — название организации, для ИП и физического лица — ФИО. Если у физлица отсутствует ИНН, в этом же параметре передаются паспортные данные. Не более 256 символов.
 
@@ -575,6 +700,7 @@ components:
             ИНН пользователя (10 или 12 цифр). Если у физического лица отсутствует ИНН, необходимо передать паспортные данные в параметре full_name.
 
             Можно передавать, если используете Чеки от ЮKassa или онлайн-кассу Orange Data, Атол Онлайн.
+          pattern: '^\d{10}|\d{12}$'
         email:
           type: string
           description: Электронная почта пользователя для отправки чека. Обязательный параметр, если используете Чеки от ЮKassa или если используете другое решение (стороннюю онлайн-кассу, чеки самозанятых) и не передаете phone.
@@ -585,10 +711,7 @@ components:
 
     ReceiptItem:
       type: object
-      description: |
-        Информация о товаре или услуге в чеке
-
-        **FIXME: Нужно описать недостающие необязательные поля**
+      description: Информация о товарной позиции в заказе. Используется для формирования чека.
       properties:
         description:
           type: string
@@ -608,7 +731,7 @@ components:
 
             Для чеков самозанятых — фиксированное значение: `1`
           minimum: 1
-          maximum: 6
+          maximum: 12
         quantity:
           type: number
           format: float
@@ -628,7 +751,129 @@ components:
             Перечень возможных значений:
             - для Чеков от ЮKassa: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#measure
             - для сторонних онлайн-касс: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#measure
+          enum:
+            - piece
+            - gram
+            - kilogram
+            - ton
+            - centimeter
+            - decimeter
+            - meter
+            - square_centimeter
+            - square_decimeter
+            - square_meter
+            - milliliter
+            - liter
+            - cubic_meter
+            - kilowatt_hour
+            - gigacalorie
+            - day
+            - hour
+            - minute
+            - second
+            - kilobyte
+            - megabyte
+            - gigabyte
+            - terabyte
+            - another
           example: piece
+        mark_quantity:
+          $ref: '#/components/schemas/MarkQuantity'
+        payment_subject:
+          type: string
+          description: |
+            Признак предмета расчета (тег в 54 ФЗ — 1212).
+            Перечень значений: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#payment-subject
+          enum:
+            - commodity
+            - excise
+            - job
+            - service
+            - gambling_bet
+            - gambling_prize
+            - lottery
+            - lottery_prize
+            - intellectual_activity
+            - payment
+            - agent_commission
+            - property_right
+            - non_operating_gain
+            - insurance_premium
+            - sales_tax
+            - resort_fee
+            - composite
+            - another
+            - fine
+            - tax
+            - lien
+            - cost
+            - pension_insurance_without_payouts
+            - pension_insurance_with_payouts
+            - health_insurance_without_payouts
+            - health_insurance_with_payouts
+            - health_insurance
+            - casino
+            - agent_withdrawals
+            - non_marked_excise
+            - marked_excise
+            - marked
+            - non_marked
+        payment_mode:
+          type: string
+          description: |
+            Признак способа расчета (тег в 54 ФЗ — 1214).
+            Перечень значений: https://yookassa.ru/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#payment-mode
+          enum:
+            - full_prepayment
+            - partial_prepayment
+            - advance
+            - full_payment
+            - partial_payment
+            - credit
+            - credit_payment
+        country_of_origin_code:
+          type: string
+          description: |
+            Код страны происхождения товара (тег в 54 ФЗ — 1230). Пример: `RU`.
+            Можно передавать для онлайн-касс Orange Data, Кит Инвест.
+          example: RU
+        customs_declaration_number:
+          type: string
+          description: Номер таможенной декларации (тег в 54 ФЗ — 1231). От 1 до 32 символов.
+          minLength: 1
+          maxLength: 32
+        excise:
+          type: string
+          description: Сумма акциза товара с учётом копеек (тег в 54 ФЗ — 1229). Десятичное число с точностью до 2 знаков после точки.
+          example: '20.00'
+        product_code:
+          type: string
+          description: |
+            Код товара (тег в 54 ФЗ — 1162) — уникальный номер единицы товара при маркировке.
+            Формат: шестнадцатеричное число с пробелами, максимум 32 байта.
+            Нужен для касс на ФФД 1.05/1.1 с маркировкой. Не передавать для Чеков от ЮKassa и касс на ФФД 1.2.
+        planned_status:
+          type: integer
+          description: |
+            Планируемый статус товара (тег в 54 ФЗ — 2003).
+            Только для товаров с обязательной маркировкой (`gs_1m`, `short` или `fur` в `mark_code_info`).
+          minimum: 1
+          maximum: 6
+        mark_code_info:
+          $ref: '#/components/schemas/MarkCodeInfo'
+        mark_mode:
+          type: string
+          description: |
+            Режим обработки кода маркировки (тег в 54 ФЗ — 2102). Должен быть равен `0`.
+            Обязателен при маркировке для Чеков от ЮKassa / Атол Онлайн / BusinessRu на ФФД 1.2.
+          pattern: '^0$'
+          example: '0'
+        payment_subject_industry_details:
+          type: array
+          description: |
+            Отраслевой реквизит предмета расчета (тег в 54 ФЗ — 1260).
+          items:
+            $ref: '#/components/schemas/IndustryDetails'
       required:
         - description
         - amount
@@ -657,6 +902,7 @@ components:
           allOf:
             - $ref: '#/components/schemas/Amount'
         description:
+          type: string
           description: Описание транзакции (не более 128 символов), которое вы увидите в личном кабинете ЮKassa, а пользователь — при оплате
           example: Оплата заказа № 72 для user@yoomoney.ru
         recipient:
@@ -742,6 +988,9 @@ components:
                 - payment_method_restricted
                 - permission_revoked
                 - unsupported_mobile_operator
+                - loan_declined
+                - loan_declined_by_payer
+                - loan_application_expired
           required:
             - party
             - reason
@@ -771,29 +1020,9 @@ components:
           type: array
           description: Данные о распределении денег — сколько и в какой магазин нужно перевести. Присутствует, если вы используете Сплитование платежей
           items:
-            type: object
+            $ref: '#/components/schemas/Transfer'
         deal:
-          type: object
-          description: Данные о сделке, в составе которой проходит платеж. Присутствует, если вы проводите Безопасную сделку
-          properties:
-            id:
-              type: string
-            settlements:
-              type: array
-              items:
-                type: object
-                properties:
-                  type:
-                    type: string
-                    enum: ['payout']
-                  amount:
-                    $ref: '#/components/schemas/Amount'
-                required:
-                  - type
-                  - amount
-          required:
-            - id
-            - settlements
+          $ref: '#/components/schemas/PaymentDeal'
         merchant_customer_id:
           type: string
           description: Идентификатор покупателя в вашей системе, например электронная почта или номер телефона. Присутствует, если вы хотите запомнить банковскую карту и отобразить ее при повторном платеже в виджете ЮKassa
@@ -813,6 +1042,7 @@ components:
         - created_at
         - paid
         - refundable
+        - test
 
     PaymentMethod:
       oneOf:
@@ -833,17 +1063,37 @@ components:
         - $ref: '#/components/schemas/PaymentMethodTinkoffBank'
         - $ref: '#/components/schemas/PaymentMethodWeChat'
         - $ref: '#/components/schemas/PaymentMethodWebMoney'
+        - $ref: '#/components/schemas/PaymentMethodSberBnpl'
+        - $ref: '#/components/schemas/PaymentMethodAlfaPay'
 
     PaymentMethodBase:
       type: object
       required:
         - id
         - saved
+        - status
       properties:
         id:
           type: string
         saved:
           type: boolean
+          description: |
+            Признак сохранения способа оплаты для автоплатежей.
+
+            - `true` — способ оплаты сохранён;
+            - `false` — способ оплаты не сохранён.
+        status:
+          type: string
+          description: |
+            Статус проверки и сохранения способа оплаты.
+
+            - `pending` — ожидает действий от пользователя;
+            - `active` — способ оплаты сохранён;
+            - `inactive` — способ оплаты не сохранён.
+          enum:
+            - pending
+            - active
+            - inactive
         title:
           type: string
 
@@ -857,13 +1107,17 @@ components:
             type:
               type: string
               enum: ['sber_loan']
-            login:
-              type: string
             discount_amount:
               $ref: '#/components/schemas/Amount'
             loan_option:
               type: string
-              enum: [loan, installments_3, installments_6, installments_12]
+              description: |
+                Тариф кредита. Например: `loan`, `installments_3`, `installments_6`, `installments_12`.
+              example: installments_3
+            suspended_until:
+              type: string
+              format: date-time
+              description: Время окончания периода охлаждения кредита или рассрочки (UTC, ISO 8601)
 
     PaymentMethodAlfabank:
       allOf:
@@ -887,22 +1141,7 @@ components:
           properties:
             type:
               type: string
-              enum: []
-      type: object
-      required:
-        - type
-        - id
-        - saved
-      properties:
-        type:
-          type: string
-          enum: [mobile_balance]
-        id:
-          type: string
-        saved:
-          type: boolean
-        title:
-          type: string
+              enum: [mobile_balance]
 
     PaymentMethodBankCard:
       allOf:
@@ -949,6 +1188,24 @@ components:
             type:
               type: string
               enum: [sbp]
+            sbp_operation_id:
+              type: string
+              description: |
+                Идентификатор операции в СБП (НСПК). Обязателен для платежей в статусе `succeeded`.
+              example: 1027088AE4CB48CB81287833347A8777
+            payer_bank_details:
+              type: object
+              description: Реквизиты счёта, который использовался для оплаты
+              properties:
+                bank_id:
+                  type: string
+                  description: Идентификатор банка-участника СБП
+                bic:
+                  type: string
+                  description: БИК банка или платёжного сервиса
+              required:
+                - bank_id
+                - bic
 
     PaymentMethodB2BSberbank:
       allOf:
@@ -956,10 +1213,21 @@ components:
         - type: object
           required:
             - type
+            - payment_purpose
+            - vat_data
           properties:
             type:
               type: string
               enum: [b2b_sberbank]
+            payment_purpose:
+              type: string
+              description: Назначение платежа (не больше 210 символов)
+              minLength: 1
+              maxLength: 210
+            vat_data:
+              $ref: '#/components/schemas/B2bSberbankVatData'
+            payer_bank_details:
+              $ref: '#/components/schemas/B2bSberbankPayerBankDetails'
 
     PaymentMethodElectronicCertificate:
       allOf:
@@ -971,6 +1239,10 @@ components:
             type:
               type: string
               enum: [electronic_certificate]
+            card:
+              description: Данные банковской карты «Мир»
+              allOf:
+                - $ref: '#/components/schemas/Card'
 
     PaymentMethodYooMoney:
       allOf:
@@ -1069,6 +1341,30 @@ components:
               type: string
               enum: [webmoney]
 
+    PaymentMethodSberBnpl:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [sber_bnpl]
+
+    PaymentMethodAlfaPay:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodBase'
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum: [alfa_pay]
+            card:
+              $ref: '#/components/schemas/Card'
+
     Card:
       type: object
       description: Данные банковской карты
@@ -1102,11 +1398,39 @@ components:
             - Dankort
             - Solo
             - Switch
-            - Unknown.
+            - Unknown
+        card_product:
+          type: object
+          description: Карточный продукт платёжной системы
+          properties:
+            code:
+              type: string
+              description: Код карточного продукта
+              example: MCP
+            name:
+              type: string
+              description: Название карточного продукта
+              example: MIR Privilege
+          required:
+            - code
+        issuer_country:
+          type: string
+          description: Код страны эмитента карты в формате ISO-3166 alpha-2
+          example: RU
+        issuer_name:
+          type: string
+          description: Наименование банка-эмитента
+        source:
+          type: string
+          description: Источник данных карты, если пользователь выбрал карту из Mir Pay / Apple Pay / Google Pay
+          enum:
+            - mir_pay
+            - apple_pay
+            - google_pay
       required:
-        - first6
         - last4
-        - cart
+        - expiry_year
+        - expiry_month
         - card_type
 
     Invoice:
@@ -1157,11 +1481,78 @@ components:
           example: Счет на оплату по договору 37
         metadata:
           $ref: '#/components/schemas/Metadata'
+        cancellation_details:
+          type: object
+          description: |
+            Комментарий к статусу `canceled`: кто отменил счёт и по какой причине
+          properties:
+            party:
+              type: string
+              enum:
+                - merchant
+                - yoo_money
+            reason:
+              type: string
+              enum:
+                - invoice_canceled
+                - invoice_expired
+                - payment_canceled
+          required:
+            - party
+            - reason
       required:
         - id
         - status
         - cart
         - created_at
+
+    InvoiceDeliveryMethodData:
+      description: Данные для доставки счёта пользователю
+      oneOf:
+        - $ref: '#/components/schemas/InvoiceDeliveryMethodDataSelf'
+        - $ref: '#/components/schemas/InvoiceDeliveryMethodDataSms'
+        - $ref: '#/components/schemas/InvoiceDeliveryMethodDataEmail'
+      discriminator:
+        propertyName: type
+
+    InvoiceDeliveryMethodDataSelf:
+      type: object
+      description: Счёт будет доступен по ссылке — вы сами передадите её пользователю
+      properties:
+        type:
+          type: string
+          enum: [self]
+      required:
+        - type
+
+    InvoiceDeliveryMethodDataSms:
+      type: object
+      description: ЮKassa отправит ссылку на счёт в SMS
+      properties:
+        type:
+          type: string
+          enum: [sms]
+        phone:
+          type: string
+          description: Номер телефона для отправки SMS (ITU-T E.164)
+          example: '79000000000'
+      required:
+        - type
+        - phone
+
+    InvoiceDeliveryMethodDataEmail:
+      type: object
+      description: ЮKassa отправит ссылку на счёт на email
+      properties:
+        type:
+          type: string
+          enum: [email]
+        email:
+          type: string
+          description: Адрес электронной почты для отправки письма со счётом
+      required:
+        - type
+        - email
 
     InvoiceCartItem:
       type: object
@@ -1407,12 +1798,13 @@ components:
           type: string
           description: URL, на который необходимо перенаправить пользователя для подтверждения оплаты
         enforce:
-          type: string
+          type: boolean
           description: |-
             Запрос на проведение платежа с аутентификацией по 3-D Secure.
             Будет работать, если оплату банковской картой вы по умолчанию принимаете без подтверждения платежа пользователем.
             В остальных случаях аутентификацией по 3-D Secure будет управлять ЮKassa.
             Если хотите принимать платежи без дополнительного подтверждения пользователем, напишите вашему менеджеру ЮKassa
+          default: false
         return_url:
           type: string
           description: URL, на который вернется пользователь после подтверждения или отмены платежа на веб-странице. Не более 2048 символов
@@ -1421,13 +1813,21 @@ components:
         - type
         - confirmation_url
 
-    Recipient:
+    CreatePaymentRecipient:
       type: object
       description: |
-        Получатель платежа
-
-        **Для создания платежей**
+        Получатель платежа при создании.
         Нужен, если вы разделяете потоки платежей в рамках одного аккаунта или создаете платеж в адрес другого аккаунта.
+      properties:
+        gateway_id:
+          type: string
+          description: Идентификатор субаккаунта. Используется для разделения потоков платежей в рамках одного аккаунта
+      required:
+        - gateway_id
+
+    Recipient:
+      type: object
+      description: Получатель платежа в объекте платежа
       properties:
         account_id:
           type: string
@@ -1438,6 +1838,702 @@ components:
       required:
         - account_id
         - gateway_id
+
+    PaymentDeal:
+      type: object
+      description: |
+        Данные о сделке, в составе которой проходит платёж.
+        Передаётся / присутствует, если вы используете Безопасную сделку:
+        https://yookassa.ru/developers/solutions-for-platforms/safe-deal/basics
+      properties:
+        id:
+          type: string
+          description: Идентификатор сделки
+        settlements:
+          type: array
+          description: Данные о распределении денег
+          items:
+            $ref: '#/components/schemas/DealSettlement'
+      required:
+        - id
+        - settlements
+
+    DealSettlement:
+      type: object
+      description: Данные о распределении денег в рамках сделки
+      properties:
+        type:
+          type: string
+          enum: [payout]
+        amount:
+          $ref: '#/components/schemas/Amount'
+      required:
+        - type
+        - amount
+
+    TransferDataBase:
+      type: object
+      description: Базовые данные о переводе при сплитовании платежей
+      properties:
+        account_id:
+          type: string
+          description: Идентификатор магазина, в пользу которого принимается оплата
+        amount:
+          description: Сумма, которая будет переведена магазину
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+        platform_fee_amount:
+          description: Комиссия за проданные товары или услуги, удерживаемая в вашу пользу
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+      required:
+        - account_id
+        - amount
+
+    TransferData:
+      allOf:
+        - $ref: '#/components/schemas/TransferDataBase'
+        - type: object
+          properties:
+            description:
+              type: string
+              maxLength: 128
+              description: Описание транзакции (не более 128 символов), которое продавец увидит в личном кабинете ЮKassa
+              example: Заказ маркетплейса №72
+            metadata:
+              $ref: '#/components/schemas/Metadata'
+
+    Transfer:
+      allOf:
+        - $ref: '#/components/schemas/TransferData'
+        - type: object
+          required:
+            - status
+          properties:
+            status:
+              type: string
+              description: Статус распределения денег между магазинами
+              enum:
+                - pending
+                - waiting_for_capture
+                - succeeded
+                - canceled
+
+    Airline:
+      type: object
+      description: |
+        Объект с данными для продажи авиабилетов:
+        https://yookassa.ru/developers/payment-acceptance/scenario-extensions/airline-tickets
+        Используется только для платежей банковской картой.
+      properties:
+        ticket_number:
+          type: string
+          description: |
+            Уникальный номер билета. Если номер уже известен при создании платежа — обязательный параметр.
+            Иначе вместо него передайте `booking_reference`.
+          minLength: 1
+          maxLength: 150
+          pattern: '[0-9]{1,150}'
+          example: '5554916004417'
+        booking_reference:
+          type: string
+          description: Номер бронирования. Обязателен, если не передан `ticket_number`
+          minLength: 1
+          maxLength: 20
+          example: IIIKRV
+        passengers:
+          type: array
+          description: Список пассажиров
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/AirlinePassenger'
+        legs:
+          type: array
+          description: Список сегментов перелёта
+          maxItems: 4
+          items:
+            $ref: '#/components/schemas/AirlineLeg'
+
+    AirlinePassenger:
+      type: object
+      description: Информация о пассажире
+      properties:
+        first_name:
+          type: string
+          description: Имя пассажира латиницей
+          minLength: 1
+          maxLength: 64
+          example: SERGEI
+        last_name:
+          type: string
+          description: Фамилия пассажира латиницей
+          minLength: 1
+          maxLength: 64
+          example: IVANOV
+      required:
+        - first_name
+        - last_name
+
+    AirlineLeg:
+      type: object
+      description: Информация о перелёте
+      properties:
+        departure_airport:
+          type: string
+          description: Код аэропорта вылета по IATA
+          minLength: 3
+          maxLength: 3
+          pattern: '[A-Z]{3}'
+          example: LED
+        destination_airport:
+          type: string
+          description: Код аэропорта прилёта по IATA
+          minLength: 3
+          maxLength: 3
+          pattern: '[A-Z]{3}'
+          example: AMS
+        departure_date:
+          type: string
+          format: date
+          description: Дата вылета в формате YYYY-MM-DD
+          example: '2018-06-20'
+        carrier_code:
+          type: string
+          description: Код авиакомпании по IATA
+          minLength: 2
+          maxLength: 3
+          example: SU
+      required:
+        - departure_airport
+        - destination_airport
+        - departure_date
+
+    PaymentReceiver:
+      description: |
+        Реквизиты получателя при пополнении кошелька, банковского счёта или баланса телефона:
+        https://yookassa.ru/developers/payment-acceptance/scenario-extensions/receiver-data
+      oneOf:
+        - $ref: '#/components/schemas/PaymentReceiverMobileBalance'
+        - $ref: '#/components/schemas/PaymentReceiverDigitalWallet'
+        - $ref: '#/components/schemas/PaymentReceiverBankAccount'
+      discriminator:
+        propertyName: type
+
+    PaymentReceiverBase:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - mobile_balance
+            - digital_wallet
+            - bank_account
+
+    PaymentReceiverMobileBalance:
+      allOf:
+        - $ref: '#/components/schemas/PaymentReceiverBase'
+        - type: object
+          required:
+            - phone
+          properties:
+            type:
+              type: string
+              enum: [mobile_balance]
+            phone:
+              type: string
+              description: Номер телефона для пополнения в формате ITU-T E.164
+              example: '79000000000'
+
+    PaymentReceiverDigitalWallet:
+      allOf:
+        - $ref: '#/components/schemas/PaymentReceiverBase'
+        - type: object
+          required:
+            - account_number
+          properties:
+            type:
+              type: string
+              enum: [digital_wallet]
+            account_number:
+              type: string
+              description: Идентификатор электронного кошелька для пополнения
+              maxLength: 20
+              example: N41001184120504
+
+    PaymentReceiverBankAccount:
+      allOf:
+        - $ref: '#/components/schemas/PaymentReceiverBase'
+        - type: object
+          required:
+            - account_number
+            - bic
+          properties:
+            type:
+              type: string
+              enum: [bank_account]
+            account_number:
+              type: string
+              description: Номер банковского счёта (20 символов)
+              pattern: '\d{20}'
+              example: '40817810099910004312'
+            bic:
+              type: string
+              description: БИК банка (9 символов)
+              pattern: '\d{9}'
+              example: '044525974'
+
+    PaymentMethodData:
+      description: |
+        Данные для проведения платежа выбранным способом.
+        Можно не передавать — тогда пользователь выберет способ оплаты на стороне ЮKassa.
+        Подробнее: https://yookassa.ru/developers/payment-acceptance/integration-scenarios/manual-integration/basics
+      oneOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBankCard'
+        - $ref: '#/components/schemas/PaymentMethodDataCash'
+        - $ref: '#/components/schemas/PaymentMethodDataSberbank'
+        - $ref: '#/components/schemas/PaymentMethodDataTinkoffBank'
+        - $ref: '#/components/schemas/PaymentMethodDataYooMoney'
+        - $ref: '#/components/schemas/PaymentMethodDataMobileBalance'
+        - $ref: '#/components/schemas/PaymentMethodDataB2bSberbank'
+        - $ref: '#/components/schemas/PaymentMethodDataSbp'
+        - $ref: '#/components/schemas/PaymentMethodDataSberLoan'
+        - $ref: '#/components/schemas/PaymentMethodDataElectronicCertificate'
+        - $ref: '#/components/schemas/PaymentMethodDataSberBnpl'
+        - $ref: '#/components/schemas/PaymentMethodDataAlfaPay'
+      discriminator:
+        propertyName: type
+
+    PaymentMethodDataBase:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - bank_card
+            - cash
+            - sberbank
+            - tinkoff_bank
+            - yoo_money
+            - mobile_balance
+            - b2b_sberbank
+            - sbp
+            - sber_loan
+            - electronic_certificate
+            - sber_bnpl
+            - alfa_pay
+
+    PaymentMethodDataBankCard:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [bank_card]
+            card:
+              $ref: '#/components/schemas/CardRequestData'
+
+    PaymentMethodDataCash:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [cash]
+            phone:
+              type: string
+              description: Телефон пользователя для SMS с кодом платежа (ITU-T E.164). Можно не передавать — пользователь заполнит при оплате.
+              example: '79000000000'
+
+    PaymentMethodDataSberbank:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [sberbank]
+            phone:
+              type: string
+              description: Телефон пользователя в SberPay для подтверждения по SMS (сценарий external)
+              example: '79000000000'
+
+    PaymentMethodDataTinkoffBank:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [tinkoff_bank]
+
+    PaymentMethodDataYooMoney:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [yoo_money]
+
+    PaymentMethodDataMobileBalance:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          required:
+            - phone
+          properties:
+            type:
+              type: string
+              enum: [mobile_balance]
+            phone:
+              type: string
+              description: Телефон, с баланса которого списывается платёж (ITU-T E.164)
+              example: '79000000000'
+
+    PaymentMethodDataB2bSberbank:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          required:
+            - payment_purpose
+            - vat_data
+          properties:
+            type:
+              type: string
+              enum: [b2b_sberbank]
+            payment_purpose:
+              type: string
+              description: Назначение платежа (не больше 210 символов)
+              minLength: 1
+              maxLength: 210
+            vat_data:
+              $ref: '#/components/schemas/B2bSberbankVatData'
+
+    PaymentMethodDataSbp:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [sbp]
+
+    PaymentMethodDataSberLoan:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [sber_loan]
+
+    PaymentMethodDataElectronicCertificate:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [electronic_certificate]
+            card:
+              $ref: '#/components/schemas/CardRequestData'
+            electronic_certificate:
+              type: object
+              description: |
+                Данные от ФЭС НСПК. Нужны только при сборе данных на вашей стороне.
+              properties:
+                amount:
+                  description: Сумма к оплате по сертификату (не больше amount платежа)
+                  allOf:
+                    - $ref: '#/components/schemas/Amount'
+                basket_id:
+                  type: string
+                  description: Идентификатор корзины покупки из НСПК (purchaseBasketId)
+              required:
+                - amount
+                - basket_id
+
+    PaymentMethodDataSberBnpl:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [sber_bnpl]
+            phone:
+              type: string
+              description: Телефон пользователя для авторизации в сервисе «Плати частями» (ITU-T E.164)
+              example: '79000000000'
+
+    PaymentMethodDataAlfaPay:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethodDataBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [alfa_pay]
+
+    CardRequestData:
+      type: object
+      description: Данные банковской карты (если собираете данные карты на своей стороне)
+      properties:
+        number:
+          type: string
+          description: Номер банковской карты
+          pattern: '[0-9]{14,19}'
+          example: '5105105105105100'
+        expiry_year:
+          type: string
+          description: Срок действия, год, YYYY
+          pattern: '[0-9]{4}'
+          example: '2027'
+        expiry_month:
+          type: string
+          description: Срок действия, месяц, MM
+          pattern: '[0-9]{2}'
+          example: '07'
+        cardholder:
+          type: string
+          description: Имя владельца карты
+        csc:
+          type: string
+          description: Код CVC2/CVV2 (3 или 4 символа)
+          pattern: '[0-9]{3,4}'
+          example: '012'
+      required:
+        - number
+        - expiry_year
+        - expiry_month
+
+    B2bSberbankVatData:
+      description: Данные об НДС для оплаты через СберБанк Бизнес Онлайн
+      oneOf:
+        - $ref: '#/components/schemas/B2bSberbankVatDataCalculated'
+        - $ref: '#/components/schemas/B2bSberbankVatDataUntaxed'
+        - $ref: '#/components/schemas/B2bSberbankVatDataMixed'
+      discriminator:
+        propertyName: type
+
+    B2bSberbankVatDataCalculated:
+      type: object
+      description: Товар или услуга облагается НДС (`type=calculated`)
+      properties:
+        type:
+          type: string
+          enum: [calculated]
+        rate:
+          type: string
+          description: Ставка НДС в процентах. С 1 января 2026 вместо 20% применяется 22%.
+          enum: ['5', '7', '10', '20', '22']
+        amount:
+          description: Сумма НДС
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+      required:
+        - type
+        - rate
+        - amount
+
+    B2bSberbankVatDataUntaxed:
+      type: object
+      description: Товар или услуга не облагается НДС (`type=untaxed`)
+      properties:
+        type:
+          type: string
+          enum: [untaxed]
+      required:
+        - type
+
+    B2bSberbankVatDataMixed:
+      type: object
+      description: Несколько товаров/услуг с разными ставками НДС (`type=mixed`)
+      properties:
+        type:
+          type: string
+          enum: [mixed]
+        amount:
+          description: Сумма НДС
+          allOf:
+            - $ref: '#/components/schemas/Amount'
+      required:
+        - type
+        - amount
+
+    B2bSberbankPayerBankDetails:
+      type: object
+      description: Банковские реквизиты плательщика (юрлица или ИП)
+      properties:
+        full_name:
+          type: string
+          maxLength: 800
+        short_name:
+          type: string
+          maxLength: 160
+        address:
+          type: string
+          maxLength: 500
+        inn:
+          type: string
+          pattern: '\d{10}|\d{12}'
+        bank_name:
+          type: string
+          maxLength: 350
+        bank_branch:
+          type: string
+          maxLength: 140
+        bank_bik:
+          type: string
+          pattern: '\d{9}'
+        account:
+          type: string
+          pattern: '\d{20}'
+        kpp:
+          type: string
+          pattern: '\d{9}'
+      required:
+        - full_name
+        - short_name
+        - address
+        - inn
+        - bank_name
+        - bank_branch
+        - bank_bik
+        - account
+
+    IndustryDetails:
+      type: object
+      description: Данные отраслевого реквизита
+      properties:
+        federal_id:
+          type: string
+          description: Идентификатор федерального органа исполнительной власти (тег в 54 ФЗ — 1262)
+          example: '001'
+        document_date:
+          type: string
+          format: date
+          description: Дата документа основания (тег в 54 ФЗ — 1263)
+          example: '2020-11-18'
+        document_number:
+          type: string
+          maxLength: 32
+          description: Номер нормативного акта (тег в 54 ФЗ — 1264)
+        value:
+          type: string
+          maxLength: 256
+          description: Значение отраслевого реквизита (тег в 54 ФЗ — 1265)
+      required:
+        - federal_id
+        - document_date
+        - document_number
+        - value
+
+    OperationalDetails:
+      type: object
+      description: Операционный реквизит чека (тег в 54 ФЗ — 1270)
+      properties:
+        operation_id:
+          type: integer
+          description: Идентификатор операции (тег в 54 ФЗ — 1271). Число от 0 до 255
+          minimum: 0
+          maximum: 255
+        value:
+          type: string
+          maxLength: 64
+          description: Данные операции (тег в 54 ФЗ — 1272)
+        created_at:
+          type: string
+          format: date-time
+          description: Время создания операции (тег в 54 ФЗ — 1273), UTC, ISO 8601
+      required:
+        - operation_id
+        - value
+        - created_at
+
+    MarkQuantity:
+      type: object
+      description: |
+        Дробное количество маркированного товара (тег в 54 ФЗ — 1291).
+        Обязателен, если используете Чеки от ЮKassa / кассу ФФД 1.2, товар маркируется и `measure=piece`.
+      properties:
+        numerator:
+          type: integer
+          minimum: 1
+          description: Числитель — количество продаваемых товаров из одной упаковки (тег 1293)
+        denominator:
+          type: integer
+          minimum: 1
+          description: Знаменатель — общее количество товаров в упаковке (тег 1294)
+      required:
+        - numerator
+        - denominator
+
+    MarkCodeInfo:
+      type: object
+      description: |
+        Код товара (тег в 54 ФЗ — 1163). Обязателен при маркировке на ФФД 1.2.
+        Должно быть заполнено хотя бы одно поле.
+      properties:
+        mark_code_raw:
+          type: string
+          description: Код товара в виде, прочитанном сканером (тег 2000). Для Orange Data.
+        unknown:
+          type: string
+          minLength: 1
+          maxLength: 32
+          description: Нераспознанный код товара (тег 1300)
+        ean_8:
+          type: string
+          minLength: 8
+          maxLength: 8
+          description: Код товара в формате EAN-8 (тег 1301)
+        ean_13:
+          type: string
+          minLength: 13
+          maxLength: 13
+          description: Код товара в формате EAN-13 (тег 1302)
+        itf_14:
+          type: string
+          minLength: 14
+          maxLength: 14
+          description: Код товара в формате ITF-14 (тег 1303)
+        gs_10:
+          type: string
+          minLength: 1
+          maxLength: 38
+          description: Код товара в формате GS1.0 (тег 1304)
+        gs_1m:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Код товара в формате GS1.M (тег 1305)
+        short:
+          type: string
+          minLength: 1
+          maxLength: 38
+          description: Короткий код маркировки (тег 1306)
+        fur:
+          type: string
+          minLength: 20
+          maxLength: 20
+          description: Контрольно-идентификационный знак мехового изделия (тег 1307)
+        egais_20:
+          type: string
+          minLength: 33
+          maxLength: 33
+          description: Код товара в формате ЕГАИС-2.0 (тег 1308)
+        egais_30:
+          type: string
+          minLength: 14
+          maxLength: 14
+          description: Код товара в формате ЕГАИС-3.0 (тег 1309)
 
     WebhookEvent:
       description: Входящее уведомление

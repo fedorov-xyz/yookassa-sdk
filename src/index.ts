@@ -5,6 +5,8 @@ export type Schemas = components['schemas'];
 
 export type CreatePaymentBody = components['schemas']['CreatePaymentRequest'];
 
+export type CapturePaymentBody = components['schemas']['CapturePaymentRequest'];
+
 export type GetPaymentListQuery = operations['get-payment-list']['parameters']['query'];
 
 export type CreateInvoiceBody = components['schemas']['CreateInvoiceRequest'];
@@ -57,6 +59,26 @@ export class YooKassaSDK {
       params: {
         path: { payment_id },
       },
+    });
+  }
+
+  capturePayment({
+    payment_id,
+    body,
+    idempotenceKey,
+  }: {
+    payment_id: string;
+    body?: CapturePaymentBody;
+    idempotenceKey: string;
+  }) {
+    return this.client.POST('/payments/{payment_id}/capture', {
+      params: {
+        path: { payment_id },
+        header: {
+          ['Idempotence-Key']: idempotenceKey,
+        },
+      },
+      body,
     });
   }
 

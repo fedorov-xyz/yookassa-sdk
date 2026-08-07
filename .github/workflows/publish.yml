@@ -21,7 +21,7 @@ on:
 run-name: Publish ${{ inputs.type }} ${{ inputs.custom_version }}
 
 permissions:
-  id-token: write  # Required for OIDC
+  id-token: write # Required for OIDC
   contents: read
 
 jobs:
