@@ -128,5 +128,8 @@ out
 .yarn/install-state.gz
 .pnp.*
 
+# macOS
+.DS_Store
+
 # Project
 dist
